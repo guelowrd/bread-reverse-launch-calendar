@@ -1,0 +1,244 @@
+:root {
+  --grid: #d9d9d9;
+  --head-bg: #f3f4f6;
+  --weekend-bg: #fffbe6;
+  --other-month: #b7b7b7;
+  --black: #111111;
+  --muted: #555555;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: var(--black);
+  font-family: "DejaVu Sans", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+header.app-head {
+  padding: 18px 24px 10px;
+  border-bottom: 1px solid var(--grid);
+}
+header.app-head h1 { margin: 0 0 4px; font-size: 22px; }
+header.app-head p { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* ---- Controls ---- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-end;
+  padding: 14px 24px;
+  background: #fafafa;
+  border-bottom: 1px solid var(--grid);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.control label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+.control input[type="date"] {
+  font-size: 14px; padding: 5px 8px; border: 1px solid #bbb; border-radius: 6px;
+}
+.control input:disabled { background: #eee; color: #888; }
+
+.view-toggle button {
+  font-size: 13px; padding: 6px 12px; border: 1px solid #bbb; background: #fff;
+  border-radius: 6px; cursor: pointer;
+}
+.view-toggle button.active { background: var(--black); color: #fff; border-color: var(--black); }
+
+button.reset {
+  font-size: 13px; padding: 6px 12px; border: 1px solid #bbb; background: #fff;
+  border-radius: 6px; cursor: pointer;
+}
+
+.model-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; }
+.model-actions button {
+  font-size: 12px; padding: 6px 10px; border: 1px solid #bbb; background: #fff;
+  border-radius: 6px; cursor: pointer;
+}
+.model-actions button:hover { background: #f0f0f0; }
+#export { border-color: #0072b2; color: #0072b2; font-weight: bold; }
+
+/* ---- Warnings ---- */
+.warnings { padding: 8px 24px; }
+.warn-item {
+  padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-size: 13px;
+  border: 1px solid;
+}
+.warn-item.warn  { background: #fff7e0; border-color: #e6b800; }
+.warn-item.error { background: #fde2e2; border-color: #d55e00; }
+
+/* ---- Details / highlight popup (floating, out of document flow) ----
+   position: fixed removes it from layout, so selecting a task changes only
+   highlight state, never the vertical position of the calendar. It floats at
+   the top-right by default and can be dragged by its header. */
+.details {
+  position: fixed;
+  top: 96px;
+  right: 20px;
+  z-index: 30;
+  width: 300px;
+  max-width: calc(100vw - 40px);
+  background: #fbfbfb;
+  border: 1px solid var(--grid);
+  border-left: 4px solid #d55e00;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+}
+.details.details-hidden { display: none; }
+.details-drag {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; cursor: move; user-select: none;
+  background: #f3f4f6; border-bottom: 1px solid var(--grid);
+  border-radius: 8px 8px 0 0;
+}
+.details-drag-title { font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+.details-body { padding: 8px 12px; }
+.details-body strong { font-size: 13px; }
+.details-id { color: var(--muted); font-family: monospace; font-size: 11px; }
+.details-body > div { margin-top: 2px; }
+.clear-select {
+  font-size: 11px; border: 1px solid #999; background: #fff;
+  border-radius: 4px; cursor: pointer; padding: 2px 8px;
+}
+.clear-select:hover { background: #f0f0f0; }
+
+/* ---- Legend (doubles as a category filter) ---- */
+.legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 24px 14px; }
+.legend-item {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  cursor: pointer; user-select: none; padding: 2px 6px; border-radius: 6px;
+  border: 1px solid transparent;
+}
+.legend-item:hover { background: #f0f0f0; }
+/* Inactive (not in the current filter): dimmed so the selected categories stand
+   out. When nothing is selected every item is active, so none is dimmed. */
+.legend-item.inactive { opacity: 0.35; }
+/* Selected categories get a solid outline + bold label as an explicit,
+   not-color-only active cue. */
+.legend-item.selected {
+  font-weight: bold; border-color: #111; background: #f3f4f6;
+}
+.legend-item.selected .legend-swatch { outline: 2px solid #111; outline-offset: 1px; }
+.legend-swatch {
+  width: 28px; height: 18px; border-radius: 4px; border: 2px solid #000;
+  overflow: hidden;
+}
+
+/* ---- Task pills ---- */
+.pill {
+  position: relative;
+  border-radius: 8px;
+  border: 3px solid #000;
+  padding: 4px 6px;
+  margin: 4px 0;
+  font-size: 11px;
+  overflow: hidden;
+}
+.pill { cursor: grab; }
+.pill:active { cursor: grabbing; }
+.pill .pill-text {
+  position: relative;
+  background: rgba(255,255,255,0.9);
+  border-radius: 4px;
+  padding: 1px 3px;
+  display: block;
+}
+/* Click-to-highlight: the selected task and its anchor chain stand out. */
+.pill.hl-self   { outline: 3px solid #111; outline-offset: 1px; box-shadow: 0 0 0 2px #fff, 0 0 0 5px #111; }
+.pill.hl-anchor { outline: 3px dashed #111; outline-offset: 1px; }
+/* The terminating date-anchor cell (teaser/launch) of a highlighted chain. */
+td.hl-anchor-cell { outline: 3px dashed #111; outline-offset: -3px; background: #fff4e6; }
+.pill .badges { margin-top: 2px; }
+.badge {
+  display: inline-block; font-size: 9px; font-weight: bold; padding: 0 4px;
+  border-radius: 4px; margin-right: 3px; vertical-align: middle; line-height: 1.5;
+}
+.badge.weekend { background: #e6b800; color: #111; }
+.badge.moved   { background: #fff; color: #444; border: 1px solid #999; }
+
+/* Pattern overlays (color is not the only cue). The same classes drive the
+   legend swatches so the legend matches the calendar cells. */
+.pat-cross      { background-image: linear-gradient(45deg, transparent 46%, currentColor 46%, currentColor 54%, transparent 54%), linear-gradient(-45deg, transparent 46%, currentColor 46%, currentColor 54%, transparent 54%); }
+.pat-vertical   { background-image: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 10px); }
+.pat-horizontal { background-image: repeating-linear-gradient(0deg, currentColor 0 2px, transparent 2px 10px); }
+.pat-diagonal   { background-image: repeating-linear-gradient(45deg, currentColor 0 2px, transparent 2px 12px); }
+.pat-circle     { background-image: radial-gradient(circle at 50% 50%, transparent 30%, currentColor 30%, currentColor 42%, transparent 42%); }
+
+/* Legend swatches render the pattern at full swatch opacity so colorblind
+   users can match a legend entry to the cell hatch/stripe/cross/circle cue. */
+.legend-swatch.pat-cross,
+.legend-swatch.pat-vertical,
+.legend-swatch.pat-horizontal,
+.legend-swatch.pat-diagonal,
+.legend-swatch.pat-circle { background-repeat: repeat; }
+
+/* ---- Calendar view ---- */
+.calendar { padding: 12px 24px 40px; }
+.month { margin-bottom: 28px; }
+.month h2 { text-align: center; font-size: 20px; margin: 6px 0 8px; }
+table.cal { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.cal th {
+  background: var(--head-bg); border: 1px solid var(--grid); padding: 6px 2px;
+  font-size: 12px;
+}
+table.cal th.we, table.cal td.we { background: var(--weekend-bg); }
+table.cal td {
+  border: 1px solid var(--grid); vertical-align: top; height: 120px; padding: 4px;
+  width: 14.28%;
+}
+td.other .daynum { color: var(--other-month); }
+td.other .pill { display: none; }
+.daynum { font-weight: bold; font-size: 18px; display: inline-block; }
+.daynum.anchor {
+  border: 3px solid #d55e00; border-radius: 50%;
+  width: 30px; height: 30px; text-align: center; line-height: 26px;
+  outline: 2px solid #000; outline-offset: -6px;
+}
+.anchor-tag { font-size: 9px; font-weight: bold; color: #d55e00; display: block; }
+
+/* ---- Table/list view ---- */
+.tableview { padding: 12px 24px 40px; }
+table.tasks { width: 100%; border-collapse: collapse; }
+table.tasks th, table.tasks td {
+  border: 1px solid var(--grid); padding: 6px 8px; font-size: 12px; text-align: left;
+}
+table.tasks th { background: var(--head-bg); position: sticky; top: 64px; }
+table.tasks td.date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cat-chip {
+  display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+  border: 2px solid #000; margin-right: 6px; vertical-align: middle;
+  overflow: hidden;
+}
+tr.is-weekend td.date { background: var(--weekend-bg); }
+.wknd-mark {
+  font-size: 9px; font-weight: bold; background: #e6b800; color: #111;
+  padding: 0 4px; border-radius: 4px; vertical-align: middle;
+}
+tr.is-moved td.date::after { content: " *"; color: #d55e00; font-weight: bold; }
+tr.is-error td.date { background: #fde2e2; }
+tr.is-highlight { outline: 2px solid #111; }
+.err-mark {
+  font-size: 10px; font-weight: bold; background: #d55e00; color: #fff;
+  padding: 1px 5px; border-radius: 4px;
+}
+.edit.label { width: 190px; }
+
+/* Editable table fields (anchor / offset / flags) */
+.edit {
+  font-size: 12px; border: 1px solid #bbb; border-radius: 4px; padding: 2px 4px;
+  background: #fff;
+}
+.edit.num   { width: 56px; text-align: right; }
+.row-reset {
+  font-size: 10px; border: 1px solid #999; background: #fff; border-radius: 4px;
+  cursor: pointer; padding: 1px 6px;
+}
+.row-reset:hover { background: #f0f0f0; }
+
+.hidden { display: none; }

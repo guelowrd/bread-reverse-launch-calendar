@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bread Reverse Launch Calendar</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-head">
+    <h1>Bread Reverse Launch Calendar</h1>
+  </header>
+
+  <div class="controls">
+    <div class="control">
+      <label for="teaser">Teaser date</label>
+      <input type="date" id="teaser">
+    </div>
+    <div class="control">
+      <label for="launch">Launch date</label>
+      <input type="date" id="launch">
+    </div>
+    <div class="control view-toggle">
+      <label>View</label>
+      <button id="view-cal">Calendar</button>
+      <button id="view-table">Table</button>
+    </div>
+    <div class="control model-actions">
+      <label>Model</label>
+      <button class="reset" id="reset">Reset to defaults</button>
+      <button id="make-defaults" title="Make the current values the defaults used by Reset and export">Set current as defaults</button>
+      <button id="restore-shipped" title="Discard edits and user defaults; return to the shipped model">Restore shipped defaults</button>
+      <button id="export" title="Download the current task model (labels, anchors, offsets, defaults) as JSON">Export JSON</button>
+    </div>
+  </div>
+
+  <div class="warnings" id="warnings"></div>
+  <div class="legend" id="legend"></div>
+
+  <div class="calendar" id="calendar"></div>
+  <div class="tableview hidden" id="tableview"></div>
+
+  <!-- Floating (position: fixed) highlight/details popup. Rendered outside
+       document flow so selecting a task never shifts the calendar layout. -->
+  <div class="details details-hidden" id="details"></div>
+
+  <script src="model.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
