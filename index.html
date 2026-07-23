@@ -5,10 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bread Reverse Launch Calendar</title>
   <link rel="stylesheet" href="styles.css">
-  <meta property="og:title" content="Bread Reverse Launch Calendar">
-  <meta property="og:description" content="Interactive launch calendar for Bread: teaser, launch, task anchors, dependency chains, and business-day offsets.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://guelowrd.github.io/bread-reverse-launch-calendar/">
 </head>
 <body>
   <header class="app-head">
@@ -31,6 +27,7 @@
     </div>
     <div class="control model-actions">
       <label>Model</label>
+      <button id="add-task" title="Add a new task (product / teaser date / offset 0) to the model">Add task</button>
       <button class="reset" id="reset">Reset to defaults</button>
       <button id="make-defaults" title="Make the current values the defaults used by Reset and export">Set current as defaults</button>
       <button id="restore-shipped" title="Discard edits and user defaults; return to the shipped model">Restore shipped defaults</button>

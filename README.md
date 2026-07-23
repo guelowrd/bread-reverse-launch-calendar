@@ -2,12 +2,13 @@
 
 A self-contained, no-build local artifact that turns Pam's static Bread reverse
 launch calendar into an interactive one. Move the **teaser date** and **launch
-date**, edit any task, and drag tasks around the calendar; all **27 tasks**
-recalculate from **business-day** offsets across an anchor **graph**.
+date**, edit/add/remove any task, and drag tasks around the calendar; all
+**29 tasks** recalculate from **business-day** offsets across an anchor **graph**.
 
-The shipped default model matches `bread-calendar-model.json`
-(**teaser 2026-08-06**, **launch 2026-08-13**) with the intentional deltas
-described under [Default model](#default-model-the-shipped-27-row-schedule).
+The shipped default model is `bread-calendar-model.json`
+(**teaser 2026-08-06**, **launch 2026-08-13**, 27 tasks) plus the two tasks added
+in this revision, described under
+[Default model](#default-model-the-shipped-29-row-schedule).
 
 This model is a dependency graph:
 
@@ -46,7 +47,7 @@ No build step, no dependencies.
   instantly. The two date anchors are independent: moving the teaser does not
   move launch-rooted chains, and vice versa.
 - **Calendar view** (month grids covering whatever span the recalculated tasks
-  occupy) and **Table view**. Leading/trailing empty week rows are trimmed
+  occupy) and **Table view**. Today's date is highlighted in dark blue. Leading/trailing empty week rows are trimmed
   dynamically, so empty weeks at the start/end of a month are not rendered and
   the visible range expands/contracts as tasks move. **Week trimming is computed
   from the full resolved task set**, so toggling a category filter never changes
@@ -62,6 +63,7 @@ No build step, no dependencies.
     teaser/launch makes it a date anchor, picking a task makes it an item anchor.
   - **Offset** in business days (number field).
   - **Reset row** restores that row to its stored defaults.
+  - **Remove** deletes that task from the model.
 
   **Anchor type and external dependency are not editable** any more: both are
   **deduced from the anchor**. Anchoring to the teaser/launch date makes a task a
@@ -70,6 +72,17 @@ No build step, no dependencies.
   still exported (for JSON compatibility) but are always derived from `anchor_id`,
   never user-set, so they stay consistent after every edit, reset, import, and
   restore. There is **no `DEP` badge and no `Ext. dep` / `Anchor type` column**.
+- **Add and remove tasks.** An **`Add task`** control (in the Model actions,
+  next to Reset/Export) appends a new task with a unique **stable id**, a
+  `{n}) New task` label, and sane defaults (category **product**, anchor **teaser
+  date**, offset **0**); it shows up immediately in the table, calendar, export,
+  and `localStorage`. Each table row also has a **`Remove`** button. Removing a
+  task that other tasks anchor to does **not** leave dangling anchors: each
+  dependent is **re-anchored to the removed task's own anchor** (preserving its
+  offset) when that anchor is still valid, or falls back to the **teaser date
+  with offset 0**. The two reserved date anchors (teaser/launch) are not tasks
+  and cannot be removed. You can remove shipped tasks too; **Restore shipped
+  defaults** brings the full shipped model back.
 - **Item anchors recompute downstream.** Changing a parent task's date (by
   editing its offset/anchor, or by dragging it) moves every task anchored to it,
   and their descendants, by the same business-day distance.
@@ -109,7 +122,7 @@ No build step, no dependencies.
     changes computed dates or warnings.
 - **Category numbering is contiguous 0..7** across the legend and every visible
   label, always shown with a `)` separator (`{n}) text`): `0) v0.16 dependency`,
-  `1) Product / go-no-go`, `2) Stores`, `3) Video / design`, `4) Landing /
+  `1) Product / go-no-go`, `2) Stores`, `3) Video / design`, `4) Website /
   waitlist`, `5) Support`, `6) Comms`, `7) Public moment`. Every task label also
   carries its category number and separator, e.g. `0) v0.16 dependency`,
   `1) PRODUCT: date feasibility chat`.
@@ -120,8 +133,9 @@ The artifact is a **static local page**: it cannot write back to its own source
 files from the browser. So editable state lives in the browser instead:
 
 - **`localStorage` holds your working model** (key `bread-calendar-model-v2`):
-  every edit to a label, category, anchor, or offset, plus your chosen
-  teaser/launch dates and any **user-chosen defaults**, is saved automatically and
+  every edit to a label, category, anchor, or offset, every task you **add or
+  remove**, plus your chosen teaser/launch dates and any **user-chosen
+  defaults**, is saved automatically and
   restored on the next page load in the same browser. Old persisted models are
   normalized on load: derived `anchor_type` / `external_dependency` are recomputed,
   and old `n text` labels are migrated to `n) text`.
@@ -141,7 +155,7 @@ files from the browser. So editable state lives in the browser instead:
 
 | Where | What it holds | How to reset |
 |---|---|---|
-| `model.js` (source) | The **shipped** 27-task model and its defaults. Read-only from the browser. | n/a |
+| `model.js` (source) | The **shipped** 29-task model and its defaults. Read-only from the browser. | n/a |
 | `localStorage` (per browser) | Your working edits + chosen defaults + dates. | `Restore shipped defaults`, or clear site data. |
 | Exported JSON file | A snapshot you can archive or hand off. | n/a |
 
@@ -187,7 +201,7 @@ Resolution walks item anchors to their parents (memoized), so a chain like
 testnet <- 0) v0.16 on devnet <- 1) PRODUCT: Everything working e2e <- teaser
 date` resolves top to bottom and moves as one unit when any link moves.
 
-## Default model: the shipped 27-row schedule
+## Default model: the shipped 29-row schedule
 
 Default anchors: **teaser 2026-08-06** (Thu), **launch 2026-08-13** (Thu),
 matching `bread-calendar-model.json`. Under these anchors the shipped model
@@ -198,29 +212,31 @@ resolves to (sorted by date):
 | `1) PRODUCT: date feasibility chat` | Product | teaser date | -15 | 2026-07-16 |
 | `0) v0.16 on devnet` | v0.16 | item: `1) PRODUCT: Everything working e2e` | -12 | 2026-07-20 |
 | `6) COMMS: article/social drafts` | Comms | teaser date | -13 | 2026-07-20 |
-| `1) PRODUCT: company testing` | Product | teaser date | -12 | 2026-07-21 |
-| `5) SUPPORT: test workflow` | Support | item: `1) PRODUCT: company testing` | 0 | 2026-07-21 |
-| `3) VISUAL IDENTITY: Board` | Video / design | teaser date | -11 | 2026-07-22 |
+| `1) PRODUCT: company testing (try 1)` | Product | teaser date | -12 | 2026-07-21 |
+| `5) SUPPORT: test workflow` | Support | item: `1) PRODUCT: company testing (try 1)` | 0 | 2026-07-21 |
 | `3) VIDEO: teaser final` | Video / design | teaser date | -10 | 2026-07-23 |
-| `3) LAUNCH VIDEO: start` | Video / design | launch date | -14 | 2026-07-24 |
 | `2) STORES: submit post-tests (v.P-T)` | Stores | teaser date | -9 | 2026-07-24 |
-| `3) LAUNCH VIDEO: capture` | Video / design | item: `3) LAUNCH VIDEO: start` | +1 | 2026-07-27 |
+| `3) LAUNCH VIDEO: storyboard` | Video / design | launch date | -13 | 2026-07-27 |
 | `0) Guardian upgrade done` | v0.16 | item: `0) v0.16 on testnet` | -2 | 2026-07-28 |
+| `3) VISUAL IDENTITY: Board` | Video / design | teaser date | -7 | 2026-07-28 |
+| `1) PRODUCT: company testing (try 2)` | Product | item: `1) PRODUCT: company testing (try 1)` | +5 | 2026-07-28 |
+| `3) LAUNCH VIDEO: capture` | Video / design | item: `3) LAUNCH VIDEO: storyboard` | +2 | 2026-07-29 |
+| `4) WEBSITE - new version out` | Website / waitlist | teaser date | -6 | 2026-07-29 |
 | `0) v0.16 on testnet` | v0.16 | item: `0) v0.16 on devnet` | +8 | 2026-07-30 |
-| `2) STORES: v.P-T live` | Stores | item: `2) STORES: submit post-tests (v.P-T)` | +6 | 2026-08-03 |
+| `2) STORES: v.P-T live` | Stores | item: `2) STORES: submit post-tests (v.P-T)` | +5 | 2026-07-31 |
 | `6) COMMS: link pack ready` | Comms | item: `6) COMMS: article/social drafts` | +10 | 2026-08-03 |
-| `3) LAUNCH VIDEO: review` | Video / design | item: `3) LAUNCH VIDEO: capture` | +5 | 2026-08-03 |
 | `0) Client/wallet/Epoch upgrade done` | v0.16 | item: `0) Guardian upgrade done` | +4 | 2026-08-03 |
 | `2) STORES: submit final version` | Stores | teaser date | -3 | 2026-08-03 |
 | `5) SUPPORT: final polish done` | Support | launch date | -7 | 2026-08-04 |
-| `1) PRODUCT: Everything working e2e` | Product | teaser date | -1 | 2026-08-05 |
-| `4) WAITLIST: sub form out` | Landing | teaser date | -1 | 2026-08-05 |
+| `4) WAITLIST: sub form out` | Website / waitlist | teaser date | -1 | 2026-08-05 |
 | `1) GO/NO-GO before teaser` | Product | teaser date | -1 | 2026-08-05 |
+| `3) LAUNCH VIDEO: review` | Video / design | item: `3) LAUNCH VIDEO: capture` | +5 | 2026-08-05 |
+| `1) PRODUCT: Everything working e2e` | Product | teaser date | -1 | 2026-08-05 |
 | `7) PUBLIC: teaser if GO` | Public | teaser date | 0 | 2026-08-06 |
-| `3) LAUNCH VIDEO: final` | Video / design | item: `3) LAUNCH VIDEO: review` | +5 | 2026-08-10 |
 | `2) STORES: final version live` | Stores | item: `2) STORES: submit final version` | +5 | 2026-08-10 |
 | `6) COMMS: launch final` | Comms | launch date | -2 | 2026-08-11 |
-| `4) LANDING: page live` | Landing | launch date | -1 | 2026-08-12 |
+| `4) LANDING: page live` | Website / waitlist | launch date | -1 | 2026-08-12 |
+| `3) LAUNCH VIDEO: final` | Video / design | item: `3) LAUNCH VIDEO: review` | +5 | 2026-08-12 |
 | `7) PUBLIC: Launch announcement` | Public | launch date | 0 | 2026-08-13 |
 
 The earliest task is `1) PRODUCT: date feasibility chat` (2026-07-16, a
@@ -229,32 +245,31 @@ Thursday), so with default anchors the July grid's first visible week row is
 
 ### Relationship to `bread-calendar-model.json`
 
-The shipped default is the attached `bread-calendar-model.json` baseline (also
-copied into the repo as `baseline-model.json`), with these **intentional deltas**,
-verified in `verify.js` (Test 0):
+The shipped default **is** the attached `bread-calendar-model.json` baseline
+(27 tasks, also copied into the repo as `baseline-model.json`) **plus the two
+tasks added in this revision**. The baseline JSON already ships with the
+`{n}) text` index separators and with `external_dependency` already consistent
+with the anchor rule (item anchor => `true`, date anchor => `false`), so there
+are **no separator or dependency deltas** — the only difference between shipped
+and baseline is the two added tasks. `verify.js` (Test 0) asserts every baseline
+row matches the shipped row exactly (label, category, `anchor_id`, offset,
+`external_dependency`) and that exactly two ids are new.
 
-- **Index separators.** Every label gains a `)` after its number
-  (`1 PRODUCT: ...` -> `1) PRODUCT: ...`); category names/legend/options match.
-- **`external_dependency` is derived, not stored-as-authored.** It is recomputed
-  from the anchor (item anchor => `true`, date anchor => `false`). This changes
-  the flag for six baseline rows whose stored value disagreed with that rule:
-  `support_test_workflow`, `launch_video_capture`, `comms_link_pack`,
-  `launch_video_review`, `launch_video_final` become `true` (they are item
-  anchors), and `stores_submit` becomes `false` (it is teaser-anchored).
-- **Three added tasks** (below), taking the total from 24 to 27.
-- **Category rename** `3 Video` -> `3) Video / design`.
-
-All other fields (`teaser_date`, `launch_date`, per-task `category`, `anchor_id`,
-`offset_business_days`) match the baseline exactly.
+`anchor_type` and `external_dependency` remain **derived** fields (recomputed
+from `anchor_id`) that are still exported for JSON compatibility.
 
 ### Tasks added / changed in this revision
 
-- `2) STORES: submit final version` — teaser date **-3** business days
-  (`stores_submit_final_version`).
-- `2) STORES: final version live` — `2) STORES: submit final version` **+5**
-  business days (`stores_final_version_live`).
-- `3) VISUAL IDENTITY: Board` — teaser date **-11** business days, in the renamed
-  `3) Video / design` category (`visual_identity_board`).
+- **New task** `1) PRODUCT: company testing (try 2)` — item-anchored to
+  `1) PRODUCT: company testing (try 1)` at **+5** business days
+  (`company_testing_try_2`), landing 2026-07-28.
+- **New task** `4) WEBSITE - new version out` — teaser date **-6** business days
+  (`website_new_version_out`), landing 2026-07-29.
+- **Category 4 renamed** from `Landing / waitlist` to **`Website / waitlist`**
+  (the category **key** stays `landing` for backward compatibility; only the
+  display name changed).
+
+These take the shipped total from the baseline's 27 tasks to **29**.
 
 ## Critical-dependency warnings
 
@@ -277,8 +292,8 @@ is shown.
 | file | purpose |
 |---|---|
 | `index.html` | page shell + controls |
-| `model.js` | task graph model (27 tasks) + business-day math + derived anchor_type/external_dependency + resolution/cycle detection; shared by browser and tests |
-| `app.js` | browser UI: calendar/table rendering, editing, drag/drop, floating highlight popup, localStorage, export, legend filter |
+| `model.js` | task graph model (29 tasks) + business-day math + derived anchor_type/external_dependency + add/remove helpers + resolution/cycle detection; shared by browser and tests |
+| `app.js` | browser UI: calendar/table rendering, editing, add/remove tasks, drag/drop, floating highlight popup, localStorage, export, legend filter |
 | `baseline-model.json` | copy of the attached `bread-calendar-model.json` shipped baseline; `verify.js` compares shipped defaults against it |
 | `styles.css` | layout, category colors/tints, pattern cues, highlight/drag styling |
 | `verify.js` | Node test of the pure model (graph resolution, cycles, warnings, defaults, export) |
@@ -298,8 +313,11 @@ The canonical rules are in `model.js`:
   `anchor_id`; `cloneTask()` / `promoteToDefaults()` / `resetToDefaults()` route
   through them so the derived fields always stay consistent (incl. normalizing old
   persisted/imported models).
-- `SHIPPED_SPEC` / `SHIPPED_TASKS` is the shipped 27-row model; `defaultModel()`
+- `SHIPPED_SPEC` / `SHIPPED_TASKS` is the shipped 29-row model; `defaultModel()`
   returns a fresh working clone.
+- `makeTask()` builds a new task (unique id via `uniqueTaskId()`, product /
+  teaser / offset-0 defaults); `removeTask()` deletes a task and re-anchors its
+  dependents (to the removed task's anchor, or teaser + offset 0 as a fallback).
 - `resolveGraph()` resolves dates through date/item anchors with memoized DFS and
   cycle/invalid-anchor detection; `recalc()` wraps it and computes `moved` flags.
 - `validate()` produces gap, cycle/invalid, and critical-after-launch warnings.
@@ -341,6 +359,10 @@ results, static-server check, and status.
 7. **Editable defaults live in `localStorage`**, since a static page cannot write
    its own source. `Restore shipped defaults` (or clearing site data) returns to
    the `model.js` shipped model.
+8. **Removing a task re-anchors its dependents rather than orphaning them.** A
+   dependent moves to the removed task's own anchor (keeping its offset) when
+   that is still valid, else to the teaser date with offset 0. This keeps the
+   graph resolvable with no dangling anchors and is covered by the tests.
 
 ## Assumptions and unresolved caveats
 

@@ -35,7 +35,7 @@
     product: { num: 1, name: "Product / go-no-go", color: "#d55e00", tint: "#f6d7c3", pattern: "cross" },
     stores:  { num: 2, name: "Stores",             color: "#0072b2", tint: "#cfe8f6", pattern: "vertical" },
     video:   { num: 3, name: "Video / design",     color: "#cc79a7", tint: "#f0d4e4", pattern: "horizontal" },
-    landing: { num: 4, name: "Landing / waitlist", color: "#000000", tint: "#f1f5f9", pattern: "diagonal" },
+    landing: { num: 4, name: "Website / waitlist", color: "#000000", tint: "#f1f5f9", pattern: "diagonal" },
     support: { num: 5, name: "Support",            color: "#009e73", tint: "#ccebdd", pattern: "none" },
     comms:   { num: 6, name: "Comms",              color: "#e69f00", tint: "#f8e1a5", pattern: "none" },
     public:  { num: 7, name: "Public moment",      color: "#f0e442", tint: "#fff7a8", pattern: "circle" }
@@ -80,24 +80,25 @@
   // Each row: stable id, editable label, category, anchor_id (teaser_date /
   // launch_date / another task id), signed business-day offset. `anchor_type`
   // and `external_dependency` are DERIVED from anchor_id (see helpers above), so
-  // they are not listed here. Order follows bread-calendar-model.json (the
-  // shipped baseline) with the three requested additions appended; display sorts
-  // by resolved date.
+  // they are not listed here. The first 27 rows follow bread-calendar-model.json
+  // (the shipped baseline, kept as baseline-model.json); the two rows under
+  // "Additions requested in this revision batch" are appended. Display sorts by
+  // resolved date, so this array order is only the authoring order.
   var SHIPPED_SPEC = [
     { id: "date_feasibility",            label: "1) PRODUCT: date feasibility chat",      category: "product", anchor_id: TEASER_ANCHOR,                    offset: -15 },
-    { id: "company_testing",             label: "1) PRODUCT: company testing",            category: "product", anchor_id: TEASER_ANCHOR,                    offset: -12 },
+    { id: "company_testing",             label: "1) PRODUCT: company testing (try 1)",    category: "product", anchor_id: TEASER_ANCHOR,                    offset: -12 },
     { id: "support_test_workflow",       label: "5) SUPPORT: test workflow",              category: "support", anchor_id: "company_testing",                offset:   0 },
     { id: "product_e2e",                 label: "1) PRODUCT: Everything working e2e",     category: "product", anchor_id: TEASER_ANCHOR,                    offset:  -1 },
     { id: "v016_devnet",                 label: "0) v0.16 on devnet",                     category: "v016",    anchor_id: "product_e2e",                    offset: -12 },
     { id: "video_teaser_final",          label: "3) VIDEO: teaser final",                 category: "video",   anchor_id: TEASER_ANCHOR,                    offset: -10 },
-    { id: "launch_video_start",          label: "3) LAUNCH VIDEO: start",                 category: "video",   anchor_id: LAUNCH_ANCHOR,                    offset: -14 },
+    { id: "launch_video_start",          label: "3) LAUNCH VIDEO: storyboard",            category: "video",   anchor_id: LAUNCH_ANCHOR,                    offset: -13 },
     { id: "stores_submit",               label: "2) STORES: submit post-tests (v.P-T)",   category: "stores",  anchor_id: TEASER_ANCHOR,                    offset:  -9 },
-    { id: "launch_video_capture",        label: "3) LAUNCH VIDEO: capture",               category: "video",   anchor_id: "launch_video_start",             offset:   1 },
+    { id: "launch_video_capture",        label: "3) LAUNCH VIDEO: capture",               category: "video",   anchor_id: "launch_video_start",             offset:   2 },
     { id: "landing_live",                label: "4) LANDING: page live",                  category: "landing", anchor_id: LAUNCH_ANCHOR,                    offset:  -1 },
     { id: "v016_testnet",                label: "0) v0.16 on testnet",                    category: "v016",    anchor_id: "v016_devnet",                    offset:   8 },
     { id: "comms_drafts",                label: "6) COMMS: article/social drafts",        category: "comms",   anchor_id: TEASER_ANCHOR,                    offset: -13 },
     { id: "guardian_upgrade_done",       label: "0) Guardian upgrade done",               category: "v016",    anchor_id: "v016_testnet",                   offset:  -2 },
-    { id: "stores_live",                 label: "2) STORES: v.P-T live",                  category: "stores",  anchor_id: "stores_submit",                  offset:   6 },
+    { id: "stores_live",                 label: "2) STORES: v.P-T live",                  category: "stores",  anchor_id: "stores_submit",                  offset:   5 },
     { id: "email_list_ready",            label: "4) WAITLIST: sub form out",              category: "landing", anchor_id: TEASER_ANCHOR,                    offset:  -1 },
     { id: "go_no_go",                    label: "1) GO/NO-GO before teaser",              category: "product", anchor_id: TEASER_ANCHOR,                    offset:  -1 },
     { id: "comms_link_pack",             label: "6) COMMS: link pack ready",              category: "comms",   anchor_id: "comms_drafts",                   offset:  10 },
@@ -108,10 +109,14 @@
     { id: "launch_video_final",          label: "3) LAUNCH VIDEO: final",                 category: "video",   anchor_id: "launch_video_review",            offset:   5 },
     { id: "public_launch",               label: "7) PUBLIC: Launch announcement",         category: "public",  anchor_id: LAUNCH_ANCHOR,                    offset:   0 },
     { id: "client_wallet_done",          label: "0) Client/wallet/Epoch upgrade done",    category: "v016",    anchor_id: "guardian_upgrade_done",          offset:   4 },
-    // ---- Additions requested in this revision batch ----
     { id: "stores_submit_final_version", label: "2) STORES: submit final version",        category: "stores",  anchor_id: TEASER_ANCHOR,                    offset:  -3 },
     { id: "stores_final_version_live",   label: "2) STORES: final version live",          category: "stores",  anchor_id: "stores_submit_final_version",    offset:   5 },
-    { id: "visual_identity_board",       label: "3) VISUAL IDENTITY: Board",              category: "video",   anchor_id: TEASER_ANCHOR,                    offset: -11 }
+    { id: "visual_identity_board",       label: "3) VISUAL IDENTITY: Board",              category: "video",   anchor_id: TEASER_ANCHOR,                    offset:  -7 },
+    // ---- Additions requested in this revision batch ----
+    // A second company-testing pass, 5 business days after try 1 (item anchor).
+    { id: "company_testing_try_2",       label: "1) PRODUCT: company testing (try 2)",    category: "product", anchor_id: "company_testing",                offset:   5 },
+    // Website "new version out" pinned to teaser -6 bd so it lands 2026-07-29.
+    { id: "website_new_version_out",     label: "4) WEBSITE - new version out",           category: "landing", anchor_id: TEASER_ANCHOR,                    offset:  -6 }
   ];
 
   // Expand a spec row into a full task object whose default_* fields mirror the
@@ -203,6 +208,103 @@
       c.external_dependency = deriveExternalDependency(t.default_anchor_id);
       return c;
     });
+  }
+
+  // ---- Add / remove tasks ----------------------------------------------------
+  //
+  // The table view can add and remove tasks. Ids are STABLE, so add generates a
+  // collision-free id and remove repairs any dependents that anchored to the
+  // removed task (see removeTask). The two reserved date-anchor ids
+  // (teaser_date / launch_date) are not tasks and can never be generated or
+  // removed here.
+
+  // Produce a unique, id-safe slug that is not already used by a task and is not
+  // one of the reserved date-anchor ids. Falls back to base_2, base_3, ...
+  function uniqueTaskId(tasks, base) {
+    var used = {};
+    (tasks || []).forEach(function (t) { used[t.id] = true; });
+    var slug = String(base == null ? "" : base).replace(/[^a-z0-9_]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase();
+    if (!slug) slug = "task";
+    function taken(id) { return used[id] || id === TEASER_ANCHOR || id === LAUNCH_ANCHOR; }
+    if (!taken(slug)) return slug;
+    var i = 2;
+    while (taken(slug + "_" + i)) i++;
+    return slug + "_" + i;
+  }
+
+  // A sane default label ("{n}) New task") for a brand-new row, using the
+  // category's numeric prefix so it matches the "{n}) text" convention.
+  function defaultNewLabel(category, tasks) {
+    var cat = CATEGORIES[category] || CATEGORIES.product;
+    return cat.num + ") New task " + ((tasks ? tasks.length : 0) + 1);
+  }
+
+  // Build a fully-formed new task. opts: { id?, label?, category?, anchor_id?,
+  // offset_business_days? / offset? }. Defaults: category product, anchor
+  // teaser_date, offset 0. anchor_type / external_dependency are derived and the
+  // default_* fields mirror the initial values (so Reset row is a no-op until an
+  // edit). The task is NOT added to `tasks`; callers append the returned object.
+  function makeTask(tasks, opts) {
+    opts = opts || {};
+    var category = CATEGORIES[opts.category] ? opts.category : "product";
+    var anchorId = (opts.anchor_id != null) ? opts.anchor_id : TEASER_ANCHOR;
+    var offset = (opts.offset_business_days != null) ? opts.offset_business_days
+               : (opts.offset != null ? opts.offset : 0);
+    offset = Number(offset) || 0;
+    var id = uniqueTaskId(tasks, opts.id != null && opts.id !== "" ? opts.id : "task");
+    var label = (opts.label != null && opts.label !== "") ? opts.label : defaultNewLabel(category, tasks);
+    return cloneTask({
+      id: id,
+      label: label,
+      category: category,
+      anchor_id: anchorId,
+      offset_business_days: offset,
+      default_label: label,
+      default_category: category,
+      default_anchor_id: anchorId,
+      default_offset_business_days: offset
+    });
+  }
+
+  // Remove a task by id and return a new task array. Dependents that anchored to
+  // the removed task are NOT left with a broken anchor: each is re-anchored to
+  // the removed task's OWN anchor when that is still valid (a date anchor, or a
+  // surviving task), preserving the dependent's offset; otherwise it falls back
+  // to the teaser date with offset 0. Both the live anchor and the stored
+  // default anchor are repaired, so a later Reset cannot resurrect the broken id.
+  function removeTask(tasks, id) {
+    var target = findTask(tasks, id);
+    var remaining = tasks.filter(function (t) { return t.id !== id; });
+    if (!target) return remaining.map(cloneTask);
+    var removedAnchor = target.anchor_id;
+    var remainingIds = {};
+    remaining.forEach(function (t) { remainingIds[t.id] = true; });
+    function stillValid(anchorId) {
+      return isDateAnchorId(anchorId) || !!remainingIds[anchorId];
+    }
+    remaining.forEach(function (t) {
+      if (t.anchor_id === id) {
+        if (stillValid(removedAnchor)) {
+          t.anchor_id = removedAnchor;
+        } else {
+          t.anchor_id = TEASER_ANCHOR;
+          t.offset_business_days = 0;
+        }
+        t.anchor_type = deriveAnchorType(t.anchor_id);
+        t.external_dependency = deriveExternalDependency(t.anchor_id);
+      }
+      if (t.default_anchor_id === id) {
+        if (stillValid(removedAnchor)) {
+          t.default_anchor_id = removedAnchor;
+        } else {
+          t.default_anchor_id = TEASER_ANCHOR;
+          t.default_offset_business_days = 0;
+        }
+        t.default_anchor_type = deriveAnchorType(t.default_anchor_id);
+        t.default_external_dependency = deriveExternalDependency(t.default_anchor_id);
+      }
+    });
+    return remaining.map(cloneTask);
   }
 
   // ---- Date helpers (UTC-based to avoid local-timezone drift) ----------------
@@ -481,6 +583,10 @@
     cloneTasks: cloneTasks,
     promoteToDefaults: promoteToDefaults,
     resetToDefaults: resetToDefaults,
+    uniqueTaskId: uniqueTaskId,
+    defaultNewLabel: defaultNewLabel,
+    makeTask: makeTask,
+    removeTask: removeTask,
     parseISO: parseISO,
     toISO: toISO,
     addDays: addDays,

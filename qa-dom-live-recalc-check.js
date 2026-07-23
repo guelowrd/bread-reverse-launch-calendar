@@ -26,7 +26,7 @@ function makeEl(id) {
 }
 
 const els = {};
-["teaser", "launch", "reset", "make-defaults", "restore-shipped", "export",
+["teaser", "launch", "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach((id) => { const e = makeEl(id); e.classList._owner = e; els[id] = e; });
 const body = makeEl("body");
@@ -81,7 +81,7 @@ function report(name, teaser, launch, expectedTeaser, expectedLaunch) {
 }
 
 setTableView();
-assert(tableRows() === 27, "table renders 27 rows");
+assert(tableRows() === 29, "table renders 29 rows");
 report("default/static anchors", "2026-08-06", "2026-08-13", "2026-08-06", "2026-08-13");
 report("teaser changed only", "2026-08-20", "2026-08-13", "2026-08-20", "2026-08-13");
 report("launch changed only", "2026-08-06", "2026-08-20", "2026-08-06", "2026-08-20");
@@ -144,7 +144,7 @@ function fireLegend(cat) {
   } });
 }
 setTableView();
-assert(tableRows() === 27, "filter: all 27 rows visible before any legend selection");
+assert(tableRows() === 29, "filter: all 29 rows visible before any legend selection");
 // Capture the calendar structure so the filter can be shown NOT to trim weeks.
 els["view-cal"]._fire("click");
 const calSkelUnfiltered = (els.calendar.innerHTML.match(/class="daynum[^"]*">\d+</g) || []).join("|");
@@ -157,16 +157,40 @@ els["view-cal"]._fire("click");
 assert((els.calendar.innerHTML.match(/class="daynum[^"]*">\d+</g) || []).join("|") === calSkelUnfiltered, "filter: category toggle does NOT change which weeks/days are shown");
 setTableView();
 fireLegend("product");
-assert(tableRows() === 6, "filter: clicking another category adds it (public 2 + product 4)");
+assert(tableRows() === 7, "filter: clicking another category adds it (public 2 + product 5)");
 fireLegend("public");
-assert(tableRows() === 4, "filter: clicking a selected category deselects it");
+assert(tableRows() === 5, "filter: clicking a selected category deselects it");
 els.legend._fire("dblclick", { target: {} });
-assert(tableRows() === 27, "filter: double-click resets to all categories visible");
+assert(tableRows() === 29, "filter: double-click resets to all categories visible");
 console.log("legend filter: single/add/remove/double-click reset + stable week trimming verified through app.js");
+
+// ---- Add / remove tasks through the UI -------------------------------------
+function fireRemove(id) {
+  body._fire("click", { target: {
+    closest: (sel) => (sel === "[data-remove]" ? { getAttribute: () => String(id) } : null),
+  } });
+}
+els["restore-shipped"]._fire("click");
+setTableView();
+assert(tableRows() === 29, "add/remove: starts at 29 rows");
+els["add-task"]._fire("click");
+assert(tableRows() === 30 && App.state.model.length === 30, "add: Add task appends a row (29 -> 30)");
+const addedId = App.state.model[App.state.model.length - 1].id;
+assert(JSON.parse(App.exportJSON()).tasks.some((t) => t.id === addedId), "add: added task is in the export");
+fireRemove(addedId);
+assert(tableRows() === 29 && !App.state.model.some((t) => t.id === addedId), "remove: added task removed (30 -> 29)");
+fireRemove("company_testing");
+assert(tableRows() === 28 && App.state.model.find((t) => t.id === "company_testing_try_2").anchor_id === "teaser_date",
+  "remove: removing a task with dependents re-anchors them to the removed task's anchor");
+assert(M.recalc({ teaser: App.state.teaser, launch: App.state.launch, tasks: App.state.model }).errors.length === 0, "remove: no dangling anchors after removal");
+els["restore-shipped"]._fire("click");
+setTableView();
+assert(tableRows() === 29 && !!App.state.model.find((t) => t.id === "company_testing"), "restore shipped brings back the full 29-task model after add/remove");
+console.log("add/remove tasks (unique id, dependent re-anchor, export/restore) verified through app.js");
 
 // ---- Export ----------------------------------------------------------------
 const exported = JSON.parse(App.exportJSON());
-assert(exported.tasks.length === 27 && exported.teaser_date === "2026-08-06" && exported.version === 2, "export JSON carries the full 27-task version-2 model");
+assert(exported.tasks.length === 29 && exported.teaser_date === "2026-08-06" && exported.version === 2, "export JSON carries the full 29-task version-2 model");
 console.log("export JSON verified through app.js");
 
 console.log(`PASS: ${pass} DOM/live-render QA assertions passed.`);

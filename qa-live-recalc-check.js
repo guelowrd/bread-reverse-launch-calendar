@@ -44,7 +44,7 @@ function expectedDate(tasks, id, teaser, launch) {
 let assertions = 0;
 for (const s of scenarios) {
   const result = M.recalc({ teaser: s.teaser, launch: s.launch });
-  assert(result.tasks.length === 27, `${s.name}: expected 27 tasks`); assertions++;
+  assert(result.tasks.length === 29, `${s.name}: expected 29 tasks`); assertions++;
   assert(result.errors.length === 0, `${s.name}: unexpected errors ${JSON.stringify(result.errors)}`); assertions++;
   for (const task of result.tasks) {
     const expected = expectedDate(M.SHIPPED_TASKS, task.id, s.teaser, s.launch);
@@ -102,5 +102,21 @@ M.SHIPPED_TASKS.forEach((task) => {
   assert(task.external_dependency === !isDate, `external_dependency derived for ${task.id}`); assertions++;
 });
 console.log(`deduced-field check: anchor_type + external_dependency derived from anchor_id for all ${M.SHIPPED_TASKS.length} tasks`);
+
+// Add / remove: a new task is added with a unique id and resolves; removing a
+// task with dependents re-anchors them to the removed task's anchor (no dangling
+// anchors) and export reflects the add/omits the remove.
+const addModel = M.defaultModel();
+const added = M.makeTask(addModel, { id: "qa_extra", offset: 2 });
+const addModel2 = addModel.concat([added]);
+assert(added.id === "qa_extra" && addModel2.length === 30, "add: new task appended with a unique stable id"); assertions++;
+assert(M.recalc({ tasks: addModel2 }).errors.length === 0, "add: model still resolves cleanly"); assertions++;
+assert(M.exportModel(M.DEFAULT_TEASER, M.DEFAULT_LAUNCH, addModel2).tasks.some((t) => t.id === "qa_extra"), "add: export includes the added task"); assertions++;
+const removed = M.removeTask(M.defaultModel(), "company_testing");
+assert(removed.length === 28 && !M.findTask(removed, "company_testing"), "remove: task dropped from the model"); assertions++;
+assert(M.findTask(removed, "company_testing_try_2").anchor_id === M.TEASER_ANCHOR, "remove: dependent re-anchored to removed task's anchor (teaser)"); assertions++;
+assert(M.recalc({ tasks: removed }).errors.length === 0, "remove: no dangling anchors after removal"); assertions++;
+assert(M.exportModel(M.DEFAULT_TEASER, M.DEFAULT_LAUNCH, removed).tasks.every((t) => t.id !== "company_testing"), "remove: export omits the removed task"); assertions++;
+console.log("add/remove check: add appends a unique-id task; remove re-anchors dependents with no dangling anchors");
 
 console.log(`\nPASS: ${assertions} QA scenario assertions passed.`);

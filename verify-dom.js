@@ -35,7 +35,7 @@ function makeEl(id) {
 }
 
 var els = {};
-["teaser", "launch", "reset", "make-defaults", "restore-shipped", "export",
+["teaser", "launch", "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach(function (id) { var e = makeEl(id); e.classList._owner = e; els[id] = e; });
 
@@ -117,12 +117,17 @@ check("calendar shows July 2026 header", cal.indexOf("July 2026") !== -1);
 check("calendar shows August 2026 header", cal.indexOf("August 2026") !== -1);
 check("calendar contains teaser anchor tag", cal.indexOf("TEASER") !== -1);
 check("calendar contains launch anchor tag", cal.indexOf("LAUNCH") !== -1);
+var todayISO = new Date().toISOString().slice(0, 10);
+check("calendar highlights today's date cell", cal.indexOf('class="today" data-date="' + todayISO + '"') !== -1 || cal.indexOf('today" data-date="' + todayISO + '"') !== -1);
+check("calendar highlights today's day number in dark blue", cal.indexOf('daynum today') !== -1 || cal.indexOf('daynum anchor today') !== -1);
 check("calendar renders '7) PUBLIC: teaser if GO'", cal.indexOf("7) PUBLIC: teaser if GO") !== -1);
 check("calendar renders '7) PUBLIC: Launch announcement'", cal.indexOf("7) PUBLIC: Launch announcement") !== -1);
 check("calendar renders '0) v0.16 on devnet'", cal.indexOf("0) v0.16 on devnet") !== -1);
 check("calendar renders '1) PRODUCT: Everything working e2e'", cal.indexOf("1) PRODUCT: Everything working e2e") !== -1);
-check("calendar renders new '2) STORES: submit final version'", cal.indexOf("2) STORES: submit final version") !== -1);
-check("calendar renders new '3) VISUAL IDENTITY: Board'", cal.indexOf("3) VISUAL IDENTITY: Board") !== -1);
+check("calendar renders '2) STORES: submit final version'", cal.indexOf("2) STORES: submit final version") !== -1);
+check("calendar renders '3) VISUAL IDENTITY: Board'", cal.indexOf("3) VISUAL IDENTITY: Board") !== -1);
+check("calendar renders new '1) PRODUCT: company testing (try 2)'", cal.indexOf("1) PRODUCT: company testing (try 2)") !== -1);
+check("calendar renders new '4) WEBSITE - new version out'", cal.indexOf("4) WEBSITE - new version out") !== -1);
 check("no DEP badge anywhere in the calendar", cal.indexOf(">DEP<") === -1);
 check("pills are draggable", cal.indexOf('draggable="true"') !== -1);
 check("day cells carry data-date drop targets", cal.indexOf("data-date=") !== -1);
@@ -169,7 +174,7 @@ console.log("\nSeparator-less / old labels are gone from calendar");
 console.log("\nLegend numeric prefixes use '{n}) ' and the renamed video category");
 var legendHTML = els.legend.innerHTML;
 [["0) v0.16 dependency"], ["1) Product / go-no-go"], ["2) Stores"], ["3) Video / design"],
- ["4) Landing / waitlist"], ["5) Support"], ["6) Comms"], ["7) Public moment"]].forEach(function (p) {
+ ["4) Website / waitlist"], ["5) Support"], ["6) Comms"], ["7) Public moment"]].forEach(function (p) {
   check("legend shows '" + p[0] + "'", legendHTML.indexOf(p[0]) !== -1);
 });
 check("legend does NOT show the old '3 Video' label", legendHTML.indexOf(">3 Video<") === -1 && legendHTML.indexOf("3 Video / design") === -1);
@@ -206,7 +211,8 @@ els.reset._fire("click"); // restore defaults
 console.log("\nTable view (editable rows)");
 els["view-table"]._fire("click");
 var tbl = els.tableview.innerHTML;
-check("table has 27 task rows", tableRowCount() === 27, "got " + tableRowCount());
+check("table has 29 task rows", tableRowCount() === 29, "got " + tableRowCount());
+check("table rows expose a per-row Remove control", els.tableview.innerHTML.indexOf('data-remove="') !== -1);
 check("table shows a resolved date (2026-07-20 devnet)", tbl.indexOf("2026-07-20") !== -1);
 check("label is editable (input)", tbl.indexOf('data-edit="label"') !== -1);
 check("category is editable (select)", tbl.indexOf('data-edit="category"') !== -1);
@@ -290,7 +296,7 @@ check("restore shipped returns public_teaser to teaser day 2026-08-06", els.tabl
 console.log("\nExport JSON");
 var exportText = App.exportJSON();
 var parsed = JSON.parse(exportText);
-check("export is valid JSON with 27 tasks", parsed.tasks.length === 27);
+check("export is valid JSON with 29 tasks", parsed.tasks.length === 29);
 check("export is version 2", parsed.version === 2);
 check("export carries teaser/launch anchors", parsed.teaser_date === "2026-08-06" && parsed.launch_date === "2026-08-13");
 check("export includes per-task defaults", parsed.tasks.every(function (t) { return "default_offset_business_days" in t && "default_anchor_id" in t; }));
@@ -344,12 +350,12 @@ var stale = window3.BreadApp.state.model.find(function (t) { return t.id === "st
 check("stale item anchor re-derived to item_anchor + external_dependency=true", stale.anchor_type === "item_anchor" && stale.external_dependency === true);
 check("stale persisted label migrated to '{n}) text'", stale.label === "2) STORES: v.P-T live", stale.label);
 check("stale persisted default_label migrated to '{n}) text'", stale.default_label === "2) STORES: v.P-T live", stale.default_label);
-window3.BreadApp.state; // restore shipped brings back the full 27-task model
+window3.BreadApp.state; // restore shipped brings back the full 29-task model
 els = els; // (els still bound to the last-loaded window's document)
 window = loadApp({}, makeDocument());
 App = window.BreadApp;
 els["restore-shipped"]._fire("click");
-check("restore shipped yields the full 27-task model", App.state.model.length === 27);
+check("restore shipped yields the full 29-task model", App.state.model.length === 29);
 
 // ---- Drag/drop: drop a pill on a date cell -> new business-day offset -------
 console.log("\nDrag/drop recomputes offset by business-day distance");
@@ -400,7 +406,7 @@ check("details popup hidden again after clearing", els.details._cls["details-hid
 els["restore-shipped"]._fire("click");
 els["view-table"]._fire("click");
 console.log("\nLegend filter: show-all / single / add / remove / double-click reset");
-check("all 27 rows visible before any legend click", tableRowCount() === 27, "got " + tableRowCount());
+check("all 29 rows visible before any legend click", tableRowCount() === 29, "got " + tableRowCount());
 var legend0 = els.legend.innerHTML;
 check("legend items carry data-cat", (legend0.match(/data-cat=/g) || []).length === 8);
 check("no selection -> every item active", (legend0.match(/legend-item active/g) || []).length === 8);
@@ -418,12 +424,12 @@ check("7 unselected categories inactive", (legPublic.match(/legend-item inactive
 check("legend keeps pattern cues while filtering", legPublic.indexOf("pat-circle") !== -1 && legPublic.indexOf("pat-cross") !== -1);
 check("legend keeps '{n}) ' prefixes while filtering", legPublic.indexOf("7) Public moment") !== -1 && legPublic.indexOf("1) Product / go-no-go") !== -1);
 
-fireLegendClick("product"); // add product (4 rows) -> 6
-check("public + product rows shown (6)", tableRowCount() === 6, "got " + tableRowCount());
-fireLegendClick("public"); // remove public -> 4
-check("only product rows remain (4)", tableRowCount() === 4, "got " + tableRowCount());
+fireLegendClick("product"); // add product (5 rows) -> 7
+check("public + product rows shown (7)", tableRowCount() === 7, "got " + tableRowCount());
+fireLegendClick("public"); // remove public -> 5
+check("only product rows remain (5)", tableRowCount() === 5, "got " + tableRowCount());
 fireLegendDblClick();
-check("double-click resets to all 27 rows", tableRowCount() === 27, "got " + tableRowCount());
+check("double-click resets to all 29 rows", tableRowCount() === 29, "got " + tableRowCount());
 var legReset = els.legend.innerHTML;
 check("double-click -> every item active", (legReset.match(/legend-item active/g) || []).length === 8);
 check("double-click -> nothing selected", legReset.indexOf('aria-pressed="true"') === -1);
@@ -446,12 +452,49 @@ check("adding another category still does NOT change the month/week structure",
   daySkeleton(els.calendar.innerHTML) === skelUnfiltered && monthHeaders(els.calendar.innerHTML) === hdrsUnfiltered);
 els["restore-shipped"]._fire("click");
 
+// ---- Add / remove tasks through the UI -------------------------------------
+console.log("\nAdd / remove tasks from the table view");
+function fireRemove(id) {
+  body._fire("click", { target: {
+    closest: function (sel) { return sel === "[data-remove]" ? { getAttribute: function () { return String(id); } } : null; }
+  } });
+}
+els["restore-shipped"]._fire("click");
+els["view-table"]._fire("click");
+check("starts at 29 rows before add", tableRowCount() === 29, "got " + tableRowCount());
+// Add via the model-actions button; it also switches to the table view.
+els["add-task"]._fire("click");
+check("Add task grows the table to 30 rows", tableRowCount() === 30, "got " + tableRowCount());
+check("added task appears in the model with a unique id", App.state.model.length === 30);
+var addedId = App.state.model[App.state.model.length - 1].id;
+check("added task has a '{n}) ' default label", /^\d+\) /.test(App.state.model[App.state.model.length - 1].label));
+check("added task defaults to product/teaser/offset 0",
+  (function () { var t = App.state.model[App.state.model.length - 1]; return t.category === "product" && t.anchor_id === "teaser_date" && t.offset_business_days === 0; })());
+check("added task is present in export", JSON.parse(App.exportJSON()).tasks.some(function (t) { return t.id === addedId; }));
+check("added task is persisted to localStorage", (storageData["bread-calendar-model-v2"] || "").indexOf(addedId) !== -1);
+// Remove the task we just added.
+fireRemove(addedId);
+check("Remove drops the row back to 29", tableRowCount() === 29, "got " + tableRowCount());
+check("removed task is gone from the model", !App.state.model.some(function (t) { return t.id === addedId; }));
+check("removed task is omitted from export", !JSON.parse(App.exportJSON()).tasks.some(function (t) { return t.id === addedId; }));
+// Remove a shipped task that has dependents -> dependents re-anchor (no dangling).
+fireRemove("company_testing");
+check("removing a shipped task with dependents drops it (28 rows)", tableRowCount() === 28, "got " + tableRowCount());
+check("dependent re-anchored to the removed task's anchor (teaser)",
+  App.state.model.find(function (t) { return t.id === "company_testing_try_2"; }).anchor_id === "teaser_date");
+check("no unresolved warnings after removal", els.warnings.innerHTML.indexOf("unresolved") === -1);
+// Restore shipped brings the full 29-task model back (including the removed one).
+els["restore-shipped"]._fire("click");
+els["view-table"]._fire("click");
+check("Restore shipped defaults brings back the full 29-task model", tableRowCount() === 29 && !!App.state.model.find(function (t) { return t.id === "company_testing"; }));
+
 // ---- Static HTML checks ----------------------------------------------------
 console.log("\nindex.html copy checks");
 var htmlSrc = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 check("title is exactly 'Bread Reverse Launch Calendar'", htmlSrc.indexOf("<title>Bread Reverse Launch Calendar</title>") !== -1);
 check("h1 is exactly 'Bread Reverse Launch Calendar'", htmlSrc.indexOf("<h1>Bread Reverse Launch Calendar</h1>") !== -1);
 check("export control present", htmlSrc.indexOf('id="export"') !== -1);
+check("add-task control present", htmlSrc.indexOf('id="add-task"') !== -1);
 check("make-defaults control present", htmlSrc.indexOf('id="make-defaults"') !== -1);
 check("restore-shipped control present", htmlSrc.indexOf('id="restore-shipped"') !== -1);
 check("floating details popup present + starts hidden", htmlSrc.indexOf('id="details"') !== -1 && htmlSrc.indexOf("details-hidden") !== -1);

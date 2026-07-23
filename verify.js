@@ -4,10 +4,11 @@
  *
  * Covers the graph model plus this revision batch:
  *  0. Shipped defaults match bread-calendar-model.json (baseline-model.json)
- *     except the documented, intentional deltas (index separators in labels,
- *     external_dependency now DERIVED from the anchor, and the three added tasks).
+ *     exactly, plus the two tasks added in this revision (company_testing_try_2,
+ *     website_new_version_out). The baseline JSON already ships normalized
+ *     ("{n}) " labels + derived external_dependency), so there are no other deltas.
  *  1. Default anchors reproduce every task's expected date (date AND item anchors).
- *  2. Exactly 27 tasks, each with a stable id distinct from its label.
+ *  2. Exactly 29 tasks, each with a stable id distinct from its label.
  *  3. external_dependency is DEDUCED from anchor_id (item anchor => true, date
  *     anchor => false); it is never user-set. anchor_type is likewise derived.
  *  4. Business-day arithmetic (forward/back across weekends, weekend anchors).
@@ -35,82 +36,73 @@ function check(name, cond, extra) {
 }
 function byId(result, id) { return M.findTask(result.tasks, id); }
 
-// Expected default-resolved dates for all 27 tasks (teaser 2026-08-06, launch
+// Expected default-resolved dates for all 29 tasks (teaser 2026-08-06, launch
 // 2026-08-13).
 var EXPECT = {
   date_feasibility: "2026-07-16",
   company_testing: "2026-07-21",
+  company_testing_try_2: "2026-07-28",
   support_test_workflow: "2026-07-21",
   product_e2e: "2026-08-05",
   v016_devnet: "2026-07-20",
   video_teaser_final: "2026-07-23",
-  launch_video_start: "2026-07-24",
+  launch_video_start: "2026-07-27",
   stores_submit: "2026-07-24",
-  launch_video_capture: "2026-07-27",
+  launch_video_capture: "2026-07-29",
   landing_live: "2026-08-12",
   v016_testnet: "2026-07-30",
   comms_drafts: "2026-07-20",
   guardian_upgrade_done: "2026-07-28",
-  stores_live: "2026-08-03",
+  stores_live: "2026-07-31",
   email_list_ready: "2026-08-05",
   go_no_go: "2026-08-05",
   comms_link_pack: "2026-08-03",
   public_teaser: "2026-08-06",
   comms_launch_final: "2026-08-11",
-  launch_video_review: "2026-08-03",
+  launch_video_review: "2026-08-05",
   support_final_polish: "2026-08-04",
-  launch_video_final: "2026-08-10",
+  launch_video_final: "2026-08-12",
   public_launch: "2026-08-13",
   client_wallet_done: "2026-08-03",
   stores_submit_final_version: "2026-08-03",
   stores_final_version_live: "2026-08-10",
-  visual_identity_board: "2026-07-22"
+  visual_identity_board: "2026-07-28",
+  website_new_version_out: "2026-07-29"
 };
-var TASK_COUNT = 27;
+var TASK_COUNT = 29;
 
-console.log("Test 0: shipped defaults match baseline-model.json (with documented deltas)");
+console.log("Test 0: shipped defaults match baseline-model.json (attached JSON) + 2 added tasks");
 var baseline = JSON.parse(fs.readFileSync(path.join(__dirname, "baseline-model.json"), "utf8"));
 var shipped = M.exportModel(M.DEFAULT_TEASER, M.DEFAULT_LAUNCH, M.defaultModel());
 check("baseline is version 2", baseline.version === 2);
+check("baseline has 27 tasks (the attached JSON)", baseline.tasks.length === 27, "got " + baseline.tasks.length);
 check("shipped teaser matches baseline (2026-08-06)", shipped.teaser_date === baseline.teaser_date && shipped.teaser_date === "2026-08-06", shipped.teaser_date);
 check("shipped launch matches baseline (2026-08-13)", shipped.launch_date === baseline.launch_date && shipped.launch_date === "2026-08-13", shipped.launch_date);
-// The three tasks added in this batch are the only new ids vs the baseline.
-var ADDED_IDS = ["stores_submit_final_version", "stores_final_version_live", "visual_identity_board"];
+// The two tasks added in this batch are the only new ids vs the baseline JSON.
+var ADDED_IDS = ["company_testing_try_2", "website_new_version_out"];
 var baselineIds = baseline.tasks.map(function (t) { return t.id; });
 var shippedById = {};
 shipped.tasks.forEach(function (t) { shippedById[t.id] = t; });
-check("shipped adds exactly the 3 requested tasks (24 baseline + 3 = 27)", shipped.tasks.length === baseline.tasks.length + 3 && shipped.tasks.length === TASK_COUNT, "got " + shipped.tasks.length);
+check("shipped adds exactly the 2 requested tasks (27 baseline + 2 = 29)", shipped.tasks.length === baseline.tasks.length + 2 && shipped.tasks.length === TASK_COUNT, "got " + shipped.tasks.length);
 ADDED_IDS.forEach(function (id) {
   check("added task present: " + id, !!shippedById[id] && baselineIds.indexOf(id) === -1);
 });
-// external_dependency deltas: item-anchored rows the baseline marked otherwise.
-var EXPECTED_DEP_DELTAS = {
-  support_test_workflow: true,   // item anchor -> now dep (was false)
-  stores_submit: false,          // teaser anchor -> now not dep (was true)
-  launch_video_capture: true,
-  comms_link_pack: true,
-  launch_video_review: true,
-  launch_video_final: true
-};
-var depDeltas = [];
+// The baseline JSON is already normalized ("{n}) " labels + derived
+// external_dependency), so every baseline row must match the shipped row EXACTLY
+// (label, category, anchor_id, offset) and external_dependency must equal the
+// value derived from the anchor.
 baseline.tasks.forEach(function (b) {
   var s = shippedById[b.id];
   if (!s) { check("baseline id still shipped: " + b.id, false); return; }
-  // Category / anchor / offset must match the baseline exactly.
+  check("label matches baseline exactly: " + b.id, s.label === b.label, s.label + " vs " + b.label);
+  check("shipped label uses '{n}) ' separator: " + b.id, /^\d+\) /.test(s.label), s.label);
   check("category matches baseline: " + b.id, s.category === b.category, s.category + " vs " + b.category);
   check("anchor_id matches baseline: " + b.id, s.anchor_id === b.anchor_id, s.anchor_id + " vs " + b.anchor_id);
   check("offset matches baseline: " + b.id, s.offset_business_days === b.offset_business_days, s.offset_business_days + " vs " + b.offset_business_days);
-  // Label matches once the index separator ") " is normalized back to " ".
-  check("label matches baseline once separator normalized: " + b.id, s.label.replace(") ", " ") === b.label, s.label + " vs " + b.label);
-  check("shipped label uses '{n}) ' separator: " + b.id, /^\d+\) /.test(s.label), s.label);
-  // external_dependency: derived; equals baseline unless a documented delta.
   var derived = M.deriveExternalDependency(b.anchor_id);
   check("external_dependency is derived from anchor: " + b.id, s.external_dependency === derived);
-  if (s.external_dependency !== b.external_dependency) depDeltas.push(b.id);
+  check("external_dependency matches baseline (already normalized): " + b.id, s.external_dependency === b.external_dependency, s.external_dependency + " vs " + b.external_dependency);
 });
-check("external_dependency deltas are exactly the documented set",
-  depDeltas.slice().sort().join(",") === Object.keys(EXPECTED_DEP_DELTAS).sort().join(","),
-  "got [" + depDeltas.sort() + "]");
 
 console.log("\nTest 1: default anchors reproduce expected dates (date AND item anchors)");
 var base = M.recalc({});
@@ -120,7 +112,7 @@ Object.keys(EXPECT).forEach(function (id) {
 });
 check("no resolution errors at defaults", base.errors.length === 0, JSON.stringify(base.errors));
 
-console.log("\nTest 2: exactly 27 tasks, stable ids != labels");
+console.log("\nTest 2: exactly 29 tasks, stable ids != labels");
 check(TASK_COUNT + " tasks", base.tasks.length === TASK_COUNT, "got " + base.tasks.length);
 var ids = {};
 base.tasks.forEach(function (t) {
@@ -300,7 +292,7 @@ console.log("\nTest 14: export model (version 2) includes labels/anchors/offsets
 var ex = M.exportModel(M.DEFAULT_TEASER, M.DEFAULT_LAUNCH, M.defaultModel());
 check("export is version 2", ex.version === 2);
 check("export has teaser/launch", ex.teaser_date === M.DEFAULT_TEASER && ex.launch_date === M.DEFAULT_LAUNCH);
-check("export has 27 tasks", ex.tasks.length === TASK_COUNT);
+check("export has 29 tasks", ex.tasks.length === TASK_COUNT);
 var exOne = ex.tasks.find(function (t) { return t.id === "v016_devnet"; });
 check("exported task carries anchor+offset", exOne.anchor_type === "item_anchor" && exOne.anchor_id === "product_e2e" && exOne.offset_business_days === -12);
 check("exported task still carries external_dependency + defaults for JSON compat", exOne.external_dependency === true && exOne.default_external_dependency === true && exOne.default_anchor_id === "product_e2e");
@@ -313,14 +305,28 @@ var labels = base.tasks.map(function (t) { return t.label; });
 });
 ["0) v0.16 on devnet", "0) v0.16 on testnet", "1) PRODUCT: Everything working e2e",
  "2) STORES: submit final version", "2) STORES: final version live", "3) VISUAL IDENTITY: Board",
- "0) Client/wallet/Epoch upgrade done"].forEach(function (l) {
+ "0) Client/wallet/Epoch upgrade done",
+ // Rebaselined labels + the two tasks added in this revision.
+ "1) PRODUCT: company testing (try 1)", "1) PRODUCT: company testing (try 2)",
+ "3) LAUNCH VIDEO: storyboard", "4) WEBSITE - new version out"].forEach(function (l) {
   check("present: '" + l + "'", labels.indexOf(l) !== -1);
 });
-// New stores tasks anchor / offset checks.
+// Baseline stores tasks anchor / offset checks.
 check("stores_submit_final_version = teaser -3bd (2026-08-03)", byId(base, "stores_submit_final_version").date === "2026-08-03");
 check("stores_final_version_live = submit final +5bd (2026-08-10)", byId(base, "stores_final_version_live").date === "2026-08-10" && byId(base, "stores_final_version_live").anchor_id === "stores_submit_final_version");
-check("visual_identity_board = teaser -11bd (2026-07-22)", byId(base, "visual_identity_board").date === "2026-07-22");
-check("Video / design category rename applied", M.CATEGORIES.video.name === "Video / design");
+check("visual_identity_board = teaser -7bd (2026-07-28)", byId(base, "visual_identity_board").date === "2026-07-28");
+// The two tasks requested in this revision.
+check("company_testing_try_2 = company_testing +5bd (2026-07-28)",
+  byId(base, "company_testing_try_2").date === M.addBusinessDays(byId(base, "company_testing").date, 5) &&
+  byId(base, "company_testing_try_2").date === "2026-07-28" &&
+  byId(base, "company_testing_try_2").anchor_id === "company_testing" &&
+  byId(base, "company_testing_try_2").category === "product");
+check("website_new_version_out = teaser -6bd (2026-07-29)",
+  byId(base, "website_new_version_out").date === "2026-07-29" &&
+  byId(base, "website_new_version_out").anchor_id === M.TEASER_ANCHOR &&
+  byId(base, "website_new_version_out").category === "landing");
+check("Video / design category name preserved", M.CATEGORIES.video.name === "Video / design");
+check("category 4 renamed to 'Website / waitlist'", M.CATEGORIES.landing.name === "Website / waitlist");
 
 console.log("\nTest 16: labels carry '{n}) ' and category prefixes contiguous 0..7");
 var expectedNums = { v016: 0, product: 1, stores: 2, video: 3, landing: 4, support: 5, comms: 6, public: 7 };
@@ -340,6 +346,67 @@ check("chain is client/wallet -> guardian -> testnet -> devnet -> product_e2e",
   chain.join(",") === "client_wallet_done,guardian_upgrade_done,v016_testnet,v016_devnet,product_e2e", chain.join(","));
 var chain2 = M.anchorChain(M.SHIPPED_TASKS, "public_launch");
 check("date-anchored task chain is just itself", chain2.join(",") === "public_launch");
+
+console.log("\nTest 18: add / remove tasks (unique ids, dependent re-anchor, export/reset)");
+// makeTask defaults: product / teaser_date / offset 0, unique id, "{n}) " label.
+var addBase = M.defaultModel();
+var nt = M.makeTask(addBase, {});
+check("makeTask defaults to product category", nt.category === "product");
+check("makeTask defaults to teaser date anchor", nt.anchor_id === M.TEASER_ANCHOR && nt.anchor_type === "date_anchor");
+check("makeTask defaults to offset 0 + not external", nt.offset_business_days === 0 && nt.external_dependency === false);
+check("makeTask default label carries '{n}) ' prefix", /^\d+\) /.test(nt.label), nt.label);
+check("makeTask id is unique + not a reserved date anchor", !M.findTask(addBase, nt.id) && nt.id !== M.TEASER_ANCHOR && nt.id !== M.LAUNCH_ANCHOR);
+// Unique id generation across repeated adds (ids collide otherwise).
+var acc = M.defaultModel();
+var idA = M.makeTask(acc, {}); acc = acc.concat([idA]);
+var idB = M.makeTask(acc, {}); acc = acc.concat([idB]);
+var idC = M.makeTask(acc, { id: "date_feasibility" }); acc = acc.concat([idC]); // collides with a shipped id
+check("repeated adds get distinct ids", idA.id !== idB.id);
+check("explicit id colliding with an existing id is uniquified", idC.id !== "date_feasibility" && !M.findTask(M.defaultModel(), idC.id));
+// Add appears in the model + export; a fresh explicit-id task round-trips.
+var withNew = M.defaultModel();
+var extra = M.makeTask(withNew, { id: "extra_task", label: "1) PRODUCT: extra", category: "product", offset: 3 });
+withNew = withNew.concat([extra]);
+check("add grows the model to 30", withNew.length === 30);
+var exAdd = M.exportModel(M.DEFAULT_TEASER, M.DEFAULT_LAUNCH, withNew);
+check("export includes the added task", exAdd.tasks.some(function (t) { return t.id === "extra_task"; }) && exAdd.tasks.length === 30);
+var rAdd = M.recalc({ tasks: withNew });
+check("added task resolves at teaser +3bd", byId(rAdd, "extra_task").date === M.addBusinessDays(M.DEFAULT_TEASER, 3));
+
+// Remove: dependents re-anchor to the removed task's anchor when still valid.
+// company_testing (teaser anchor) has dependents support_test_workflow +
+// company_testing_try_2; removing it should re-anchor both to teaser_date.
+var rem1 = M.removeTask(M.defaultModel(), "company_testing");
+check("remove drops the task (29 -> 28)", rem1.length === 28 && !M.findTask(rem1, "company_testing"));
+var depA = M.findTask(rem1, "support_test_workflow");
+var depB = M.findTask(rem1, "company_testing_try_2");
+check("dependent re-anchored to removed task's anchor (teaser_date)",
+  depA.anchor_id === M.TEASER_ANCHOR && depA.anchor_type === "date_anchor" && depA.external_dependency === false);
+check("second dependent re-anchored to teaser_date too", depB.anchor_id === M.TEASER_ANCHOR);
+check("removal leaves no dangling anchors (no resolution errors)", M.recalc({ tasks: rem1 }).errors.length === 0);
+check("export after removal omits the removed task", M.exportModel(M.DEFAULT_TEASER, M.DEFAULT_LAUNCH, rem1).tasks.every(function (t) { return t.id !== "company_testing"; }));
+
+// Remove fallback: if the removed task's OWN anchor is invalid, dependents fall
+// back to teaser_date with offset 0.
+var brokeModel = M.defaultModel();
+var mid = M.makeTask(brokeModel, { id: "mid", anchor_id: "no_such_parent", offset: 4 }); // mid anchors a missing id
+var leaf = M.makeTask(brokeModel.concat([mid]), { id: "leaf", anchor_id: "mid", offset: 2 }); // leaf anchors mid
+brokeModel = brokeModel.concat([mid, leaf]);
+var remBroke = M.removeTask(brokeModel, "mid"); // mid's anchor (no_such_parent) is invalid
+var leaf2 = M.findTask(remBroke, "leaf");
+check("dependent of a removed task with an invalid anchor falls back to teaser+0",
+  leaf2.anchor_id === M.TEASER_ANCHOR && leaf2.offset_business_days === 0 && leaf2.anchor_type === "date_anchor");
+
+// Restore shipped defaults (defaultModel) brings back the full 29-task model even
+// after adds/removes on a working copy.
+check("defaultModel restores the shipped 29 tasks after edits", M.defaultModel().length === TASK_COUNT);
+// resetToDefaults keeps the working task SET (added stays, removed stays gone) but
+// restores each surviving task's fields to its stored defaults.
+var mixed = M.removeTask(M.defaultModel(), "public_teaser");
+mixed = mixed.concat([M.makeTask(mixed, { id: "kept_add", label: "1) PRODUCT: kept", offset: 7 })]);
+var mixedReset = M.resetToDefaults(mixed);
+check("reset keeps an added task and the removed task stays gone",
+  !!M.findTask(mixedReset, "kept_add") && !M.findTask(mixedReset, "public_teaser") && mixedReset.length === 29);
 
 console.log("\n=== " + pass + " passed, " + fail + " failed ===");
 process.exit(fail === 0 ? 0 : 1);

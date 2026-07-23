@@ -56,6 +56,7 @@
     teaser: document.getElementById("teaser"),
     launch: document.getElementById("launch"),
     reset: document.getElementById("reset"),
+    addTask: document.getElementById("add-task"),
     makeDefaults: document.getElementById("make-defaults"),
     restoreShipped: document.getElementById("restore-shipped"),
     exportBtn: document.getElementById("export"),
@@ -71,6 +72,14 @@
   var DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];
+
+  function localTodayISO() {
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
 
   function patternClass(cat) {
     switch (M.CATEGORIES[cat].pattern) {
@@ -168,6 +177,7 @@
   function renderCalendar(fullResult, visResult, hl) {
     var contentByDate = indexByDate(fullResult.tasks); // stable week structure
     var pillByDate = indexByDate(visResult.tasks);     // filtered pills
+    var today = localTodayISO();
     var months = monthSpan(fullResult);
     var html = "";
     months.forEach(function (mo) {
@@ -203,10 +213,11 @@
           var cls = [];
           if (we) cls.push("we");
           if (!inMonth) cls.push("other");
+          if (inMonth && iso === today) cls.push("today");
           if (inMonth && ((isTeaser && hl.dateAnchor === "teaser") || (isLaunch && hl.dateAnchor === "launch"))) cls.push("hl-anchor-cell");
           rowHTML += '<td class="' + cls.join(" ") + '" data-date="' + iso + '">';
-          var dayCls = "daynum" + ((isTeaser || isLaunch) && inMonth ? " anchor" : "");
-          rowHTML += '<span class="' + dayCls + '">' + cursor.getUTCDate() + "</span>";
+          var dayCls = "daynum" + ((isTeaser || isLaunch) && inMonth ? " anchor" : "") + (inMonth && iso === today ? " today" : "");
+          rowHTML += '<span class="' + dayCls + '"' + (inMonth && iso === today ? ' title="Today"' : "") + '>' + cursor.getUTCDate() + "</span>";
           if (inMonth && isTeaser) rowHTML += '<span class="anchor-tag">TEASER</span>';
           if (inMonth && isLaunch) rowHTML += '<span class="anchor-tag">LAUNCH</span>';
           if (hasTasks) {
@@ -285,7 +296,7 @@
     });
     var html = '<table class="tasks"><thead><tr>' +
       "<th>Date</th><th>Category</th><th>Label</th><th>Anchor</th>" +
-      "<th>Offset (business days)</th><th></th></tr></thead><tbody>";
+      "<th>Offset (business days)</th><th>Actions</th></tr></thead><tbody>";
     rows.forEach(function (t) {
       var trCls = [];
       if (t.weekend) trCls.push("is-weekend");
@@ -302,7 +313,10 @@
         '<td><input class="edit label" type="text" data-edit="label" data-id="' + t.id + '" value="' + escapeHTML(t.label) + '"></td>' +
         '<td><select class="edit" data-edit="anchor_id" data-id="' + t.id + '">' + anchorIdOptions(t, allTasks) + "</select></td>" +
         '<td><input class="edit num" type="number" step="1" data-edit="offset" data-id="' + t.id + '" value="' + t.offset_business_days + '"></td>' +
-        '<td><button class="row-reset" data-reset="' + t.id + '">Reset row</button></td>' +
+        '<td class="row-actions">' +
+          '<button class="row-reset" data-reset="' + t.id + '">Reset row</button>' +
+          '<button class="row-remove" data-remove="' + t.id + '" title="Remove this task from the model">Remove</button>' +
+        "</td>" +
         "</tr>";
     });
     html += "</tbody></table>";
@@ -428,6 +442,25 @@
     render();
   }
 
+  // ---- Add / remove tasks ---------------------------------------------------
+  // Add creates a new task (default: category product, teaser anchor, offset 0,
+  // a unique stable id, and a "{n}) New task" label) and appends it to the
+  // working model, so it shows up immediately in the table/calendar/export and
+  // is persisted to localStorage. Remove deletes a task and re-anchors any
+  // dependents (see M.removeTask) so no anchor is left dangling.
+  function addTask(opts) {
+    var t = M.makeTask(state.model, opts || {});
+    state.model = state.model.concat([t]);
+    render();
+    return t;
+  }
+  function removeTask(id) {
+    if (!M.findTask(state.model, id)) return;
+    state.model = M.removeTask(state.model, id);
+    if (state.selectedId === id) state.selectedId = null;
+    render();
+  }
+
   // ---- Export ---------------------------------------------------------------
   function buildExport() {
     var payload = M.exportModel(state.teaser, state.launch, state.model);
@@ -467,6 +500,13 @@
     if (el.teaser) el.teaser.value = state.teaser;
     if (el.launch) el.launch.value = state.launch;
     render();
+  });
+
+  if (el.addTask) el.addTask.addEventListener("click", function () {
+    // New tasks default to product / teaser date / offset 0 (see addTask). Show
+    // the table view so the freshly added row (and its Remove control) is visible.
+    addTask();
+    if (state.view !== "table") setView("table");
   });
 
   if (el.makeDefaults) el.makeDefaults.addEventListener("click", function () {
@@ -545,6 +585,14 @@
     t.offset_business_days = t.default_offset_business_days;
     t.external_dependency = M.deriveExternalDependency(t.default_anchor_id);
     render();
+  });
+
+  // Delegated per-row remove (delete this task from the model). Dependents are
+  // re-anchored by M.removeTask so nothing is left with a broken anchor.
+  document.body.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest("[data-remove]") : null;
+    if (!btn) return;
+    removeTask(btn.getAttribute("data-remove"));
   });
 
   // ---- Click a calendar pill: highlight item + anchor chain, show details ---
@@ -637,6 +685,8 @@
     buildExport: buildExport,
     dropTaskOnDate: dropTaskOnDate,
     setField: setField,
+    addTask: addTask,
+    removeTask: removeTask,
     select: function (id) { state.selectedId = id; render(); }
   };
 
