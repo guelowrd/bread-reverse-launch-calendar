@@ -161,6 +161,11 @@ td.hl-anchor-cell { outline: 3px dashed #111; outline-offset: -3px; background: 
 }
 .badge.weekend { background: #e6b800; color: #111; }
 .badge.moved   { background: #fff; color: #444; border: 1px solid #999; }
+/* External-dependency cue (waiting on an outside party: v0.16, app stores,
+   Circle, website go-live). Color is not the only signal: an "EXT" text badge
+   plus a dashed accent border on the pill. */
+.badge.ext     { background: #111; color: #fff; letter-spacing: 0.04em; }
+.pill.is-external { border-style: dashed; }
 
 /* Pattern overlays (color is not the only cue). The same classes drive the
    legend swatches so the legend matches the calendar cells. */
@@ -224,6 +229,10 @@ tr.is-weekend td.date { background: var(--weekend-bg); }
 .wknd-mark {
   font-size: 9px; font-weight: bold; background: #e6b800; color: #111;
   padding: 0 4px; border-radius: 4px; vertical-align: middle;
+}
+.ext-mark {
+  font-size: 9px; font-weight: bold; background: #111; color: #fff;
+  padding: 0 4px; border-radius: 4px; vertical-align: middle; letter-spacing: 0.04em;
 }
 tr.is-moved td.date::after { content: " *"; color: #d55e00; font-weight: bold; }
 tr.is-error td.date { background: #fde2e2; }

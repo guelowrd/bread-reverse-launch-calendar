@@ -2,7 +2,12 @@
 (function () {
   "use strict";
   var M = window.BreadModel;
-  var STORAGE_KEY = "bread-calendar-model-v2";
+  // Versioned storage key. Bumping the suffix (v2 -> v3) guarantees that stale
+  // pre-wave state cannot mask the new shipped defaults: the old key is a
+  // different bucket and is proactively removed on load.
+  var STORAGE_KEY = "bread-calendar-model-v3";
+  var STORAGE_SCHEMA = 3;
+  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v2", "bread-calendar-model"];
 
   // ---- Persistence (localStorage) -------------------------------------------
   // The app is a static local page: source files cannot be written from the
@@ -13,13 +18,25 @@
     try { return typeof localStorage !== "undefined" && localStorage !== null; }
     catch (e) { return false; }
   }
+  // Drop any pre-v3 persisted state so an old teaser/launch model can never
+  // resurface or shadow the wave-based defaults.
+  function dropLegacyStorage() {
+    if (!hasStorage()) return;
+    LEGACY_STORAGE_KEYS.forEach(function (k) {
+      try { localStorage.removeItem(k); } catch (e) { /* ignore */ }
+    });
+  }
   function loadPersisted() {
     if (!hasStorage()) return null;
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       var obj = JSON.parse(raw);
-      if (!obj || !Array.isArray(obj.tasks)) return null;
+      // Only accept current-schema state. Anything else (missing schema, an old
+      // teaser/launch blob copied under this key, a future version) is discarded
+      // so it cannot mask the shipped defaults.
+      if (!obj || obj.schema !== STORAGE_SCHEMA || !Array.isArray(obj.tasks)) return null;
+      if (typeof obj.wave2 !== "string" || !obj.wave2) return null;
       return obj;
     } catch (e) { return null; }
   }
@@ -27,17 +44,17 @@
     if (!hasStorage()) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        teaser: state.teaser,
-        launch: state.launch,
+        schema: STORAGE_SCHEMA,
+        wave2: state.wave2,
         tasks: state.model
       }));
     } catch (e) { /* ignore quota / disabled storage */ }
   }
 
+  dropLegacyStorage();
   var persisted = loadPersisted();
   var state = {
-    teaser: (persisted && persisted.teaser) || M.DEFAULT_TEASER,
-    launch: (persisted && persisted.launch) || M.DEFAULT_LAUNCH,
+    wave2: (persisted && persisted.wave2) || M.DEFAULT_WAVE2,
     model: persisted ? M.cloneTasks(persisted.tasks) : M.defaultModel(),
     view: "calendar",     // "calendar" | "table"
     activeCats: {},        // { categoryKey: true } (legend filter; empty = show all)
@@ -53,8 +70,7 @@
 
   // ---- DOM refs -------------------------------------------------------------
   var el = {
-    teaser: document.getElementById("teaser"),
-    launch: document.getElementById("launch"),
+    wave2: document.getElementById("wave2"),
     reset: document.getElementById("reset"),
     addTask: document.getElementById("add-task"),
     makeDefaults: document.getElementById("make-defaults"),
@@ -99,7 +115,7 @@
   }
 
   // ---- Highlight computation (click an item -> highlight it + its anchors) ---
-  // Returns { ids: {id:true}, dateAnchor: "teaser"|"launch"|null, chain: [...] }.
+  // Returns { ids: {id:true}, dateAnchor: "wave2"|null, chain: [...] }.
   function computeHighlight() {
     var out = { ids: {}, dateAnchor: null, chain: [] };
     if (!state.selectedId) return out;
@@ -108,9 +124,7 @@
     chain.forEach(function (id) { out.ids[id] = true; });
     if (chain.length) {
       var last = M.findTask(state.model, chain[chain.length - 1]);
-      if (last && last.anchor_type === "date_anchor") {
-        out.dateAnchor = last.anchor_id === M.TEASER_ANCHOR ? "teaser" : "launch";
-      }
+      if (last && last.anchor_type === "date_anchor") out.dateAnchor = "wave2";
     }
     return out;
   }
@@ -120,17 +134,15 @@
     var cat = M.CATEGORIES[t.category];
     var pat = patternClass(t.category);
     var badges = "";
+    if (t.external_dependency) badges += '<span class="badge ext" title="External dependency (waiting on an outside party: v0.16, app stores, Circle, website go-live)">EXT</span>';
     if (t.weekend) badges += '<span class="badge weekend" title="Lands on a weekend">WKND</span>';
     if (t.moved) badges += '<span class="badge moved" title="Moved from default ' + (t.default_date || "?") + '">moved</span>';
     var cls = "pill " + pat;
+    if (t.external_dependency) cls += " is-external";
     if (hl && hl.ids[t.id]) cls += (t.id === state.selectedId ? " hl-self" : " hl-anchor");
     // Category tint/fill + border color so each pill visually matches its legend
-    // entry. `color` also drives `currentColor` for the pattern overlay, so the
-    // hatch/stripe/cross/circle cue renders in the category color over the tint.
-    // Longhand `background-color` (not the `background` shorthand) is used so the
-    // pattern class's `background-image` survives the inline style. The label sits
-    // on its own translucent white chip (.pill-text) so text stays readable, and
-    // the DEP/WKND/moved badges keep their own backgrounds for legibility.
+    // entry. `color` also drives `currentColor` for the pattern overlay. The label
+    // sits on its own translucent white chip (.pill-text) so text stays readable.
     var style = "color:" + cat.color + ";background-color:" + cat.tint +
       ";border-color:" + cat.color;
     return (
@@ -152,10 +164,10 @@
     return map;
   }
 
-  // Inclusive month span covering all resolved task dates + both anchors.
+  // Inclusive month span covering all resolved task dates + the Wave 2 anchor.
   function monthSpan(result) {
     var all = result.tasks.filter(function (t) { return t.date; }).map(function (t) { return t.date; });
-    all = all.concat([result.teaser, result.launch]);
+    all = all.concat([result.wave2]);
     var min = all.reduce(function (a, b) { return a < b ? a : b; });
     var max = all.reduce(function (a, b) { return a > b ? a : b; });
     var d0 = M.parseISO(min), d1 = M.parseISO(max);
@@ -172,8 +184,7 @@
   // renderCalendar takes the FULL resolved result (fullResult) to decide the
   // month span and which weeks carry content, and a VISIBLE result (visResult,
   // after the legend category filter) to decide which pills to draw. This keeps
-  // the month/week structure stable across filter changes: toggling a category
-  // only hides/shows pills inside the already-fixed week rows.
+  // the month/week structure stable across filter changes.
   function renderCalendar(fullResult, visResult, hl) {
     var contentByDate = indexByDate(fullResult.tasks); // stable week structure
     var pillByDate = indexByDate(visResult.tasks);     // filtered pills
@@ -193,7 +204,7 @@
       var cursor = new Date(Date.UTC(mo.year, mo.month, 1 - startOffset));
 
       // Build six week rows, tracking whether each carries in-month content
-      // (a task pill or a teaser/launch anchor). Leading/trailing empty rows are
+      // (a task pill or the Wave 2 anchor). Leading/trailing empty rows are
       // trimmed dynamically so the visible span follows the current dates.
       var weekRows = [];
       for (var row = 0; row < 6; row++) {
@@ -203,23 +214,21 @@
           var iso = M.toISO(cursor);
           var inMonth = cursor.getUTCMonth() === mo.month;
           var we = (col === 0 || col === 6);
-          var isTeaser = iso === fullResult.teaser;
-          var isLaunch = iso === fullResult.launch;
+          var isWave2 = iso === fullResult.wave2;
           // Week content is decided from the FULL set so filters never trim weeks.
           var hasContent = inMonth && !!contentByDate[iso];
           // Pills are drawn from the VISIBLE (filtered) set.
           var hasTasks = inMonth && !!pillByDate[iso];
-          if (inMonth && (isTeaser || isLaunch || hasContent)) rowHasContent = true;
+          if (inMonth && (isWave2 || hasContent)) rowHasContent = true;
           var cls = [];
           if (we) cls.push("we");
           if (!inMonth) cls.push("other");
           if (inMonth && iso === today) cls.push("today");
-          if (inMonth && ((isTeaser && hl.dateAnchor === "teaser") || (isLaunch && hl.dateAnchor === "launch"))) cls.push("hl-anchor-cell");
+          if (inMonth && isWave2 && hl.dateAnchor === "wave2") cls.push("hl-anchor-cell");
           rowHTML += '<td class="' + cls.join(" ") + '" data-date="' + iso + '">';
-          var dayCls = "daynum" + ((isTeaser || isLaunch) && inMonth ? " anchor" : "") + (inMonth && iso === today ? " today" : "");
+          var dayCls = "daynum" + (isWave2 && inMonth ? " anchor" : "") + (inMonth && iso === today ? " today" : "");
           rowHTML += '<span class="' + dayCls + '"' + (inMonth && iso === today ? ' title="Today"' : "") + '>' + cursor.getUTCDate() + "</span>";
-          if (inMonth && isTeaser) rowHTML += '<span class="anchor-tag">TEASER</span>';
-          if (inMonth && isLaunch) rowHTML += '<span class="anchor-tag">LAUNCH</span>';
+          if (inMonth && isWave2) rowHTML += '<span class="anchor-tag">WAVE 2</span>';
           if (hasTasks) {
             pillByDate[iso].forEach(function (t) { rowHTML += pillHTML(t, hl); });
           }
@@ -242,9 +251,7 @@
 
   // ---- Table view (fully editable rows) -------------------------------------
   function anchorLabel(result, t) {
-    if (t.anchor_type === "date_anchor") {
-      return t.anchor_id === M.TEASER_ANCHOR ? "teaser date" : "launch date";
-    }
+    if (t.anchor_type === "date_anchor") return "Wave 2 start";
     var p = M.findTask(result.tasks, t.anchor_id);
     return p ? p.label : ("? " + t.anchor_id);
   }
@@ -256,18 +263,15 @@
     }).join("");
   }
 
-  // Anchor dropdown for a task. Teaser/launch dates always sit at the top; every
+  // Anchor dropdown for a task. The Wave 2 start date always sits at the top; every
   // other task follows, grouped by category (optgroup labels "{num}) name") and
   // sorted by resolved date within each group. The current row is excluded. The
-  // user never picks an "anchor type" first: choosing teaser/launch makes it a
+  // user never picks an "anchor type" first: choosing the Wave 2 date makes it a
   // date anchor, choosing a task makes it an item anchor (derived in the model).
-  // `resolvedTasks` is the FULL resolved task list (so the choices are complete
-  // and carry dates for sorting even under a category filter).
   function anchorIdOptions(t, resolvedTasks) {
     var html = "";
-    html += '<optgroup label="Dates">' +
-      '<option value="teaser_date"' + (t.anchor_id === "teaser_date" ? " selected" : "") + ">Teaser date</option>" +
-      '<option value="launch_date"' + (t.anchor_id === "launch_date" ? " selected" : "") + ">Launch date</option>" +
+    html += '<optgroup label="Date">' +
+      '<option value="wave2_date"' + (t.anchor_id === "wave2_date" ? " selected" : "") + ">Wave 2 start</option>" +
       "</optgroup>";
     M.CATEGORY_ORDER.forEach(function (k) {
       var c = M.CATEGORIES[k];
@@ -301,12 +305,14 @@
       var trCls = [];
       if (t.weekend) trCls.push("is-weekend");
       if (t.moved) trCls.push("is-moved");
+      if (t.external_dependency) trCls.push("is-external");
       if (t.error) trCls.push("is-error");
       if (hl.ids[t.id]) trCls.push("is-highlight");
       var wkndMark = t.weekend ? ' <span class="wknd-mark" title="Lands on a weekend">WKND</span>' : "";
+      var extMark = t.external_dependency ? ' <span class="ext-mark" title="External dependency">EXT</span>' : "";
       var dateCell = t.error
         ? '<span class="err-mark" title="' + escapeHTML(t.error) + '">unresolved</span>'
-        : (escapeHTML(t.date) + wkndMark);
+        : (escapeHTML(t.date) + wkndMark + extMark);
       html += '<tr class="' + trCls.join(" ") + '" data-row-id="' + t.id + '">' +
         '<td class="date">' + dateCell + "</td>" +
         '<td><select class="edit" data-edit="category" data-id="' + t.id + '">' + categoryOptions(t.category) + "</select></td>" +
@@ -333,12 +339,10 @@
 
   // ---- Details / highlight popup --------------------------------------------
   //
-  // The details panel is a FLOATING popup (position: fixed, see styles.css): it
-  // is rendered outside document flow so selecting a task changes only highlight
+  // The details panel is a FLOATING popup (position: fixed, see styles.css): it is
+  // rendered outside document flow so selecting a task changes only highlight
   // state, never the vertical layout of the calendar/table. When nothing is
-  // selected the popup is hidden (and reserves no space). It can be dragged by
-  // its header. Anchor-type and external-dependency copy are intentionally
-  // omitted (both are now deduced, not shown).
+  // selected the popup is hidden. It can be dragged by its header.
   function renderDetails(result, hl) {
     if (!state.selectedId) {
       el.details.classList.add("details-hidden");
@@ -353,7 +357,7 @@
       return ct ? escapeHTML(ct.label) : id;
     });
     // Append the terminating date anchor to the chain for legibility.
-    if (hl.dateAnchor) chainLabels.push(hl.dateAnchor + " date");
+    if (hl.dateAnchor === "wave2") chainLabels.push("Wave 2 start");
     var chainStr = chainLabels.join(" &larr; ");
     var anchorStr = escapeHTML(anchorLabel(result, t));
     var dateStr = t.error ? ("unresolved: " + escapeHTML(t.error)) : escapeHTML(t.date) + (t.weekend ? " (weekend)" : "");
@@ -368,6 +372,7 @@
         "<div>Date: " + dateStr + "</div>" +
         "<div>Anchor: " + anchorStr + ", offset " + t.offset_business_days + " business days</div>" +
         "<div>Category: " + M.CATEGORIES[t.category].num + ") " + escapeHTML(M.CATEGORIES[t.category].name) + "</div>" +
+        "<div>External dependency: " + (t.external_dependency ? "yes" : "no") + "</div>" +
         "<div>Anchor chain: " + chainStr + "</div>" +
       "</div>";
   }
@@ -394,7 +399,7 @@
   // ---- Main render ----------------------------------------------------------
   var lastResult = null;
   function render() {
-    var result = M.recalc({ teaser: state.teaser, launch: state.launch, tasks: state.model });
+    var result = M.recalc({ wave2: state.wave2, tasks: state.model });
     lastResult = result;
     var hl = computeHighlight();
 
@@ -403,20 +408,17 @@
     renderDetails(result, hl);
 
     var filtered = {
-      teaser: result.teaser,
-      launch: result.launch,
+      wave2: result.wave2,
       tasks: visibleTasks(result.tasks),
       errors: result.errors
     };
     if (state.view === "calendar") {
       el.calendar.classList.remove("hidden");
       el.tableview.classList.add("hidden");
-      // full result drives the stable month/week structure; filtered drives pills.
       renderCalendar(result, filtered, hl);
     } else {
       el.calendar.classList.add("hidden");
       el.tableview.classList.remove("hidden");
-      // full result (result) populates the anchor dropdown regardless of filter.
       renderTable(filtered, hl, result);
     }
     persist();
@@ -434,20 +436,15 @@
       var n = parseInt(value, 10);
       t.offset_business_days = isNaN(n) ? 0 : n;
     } else if (field === "anchor_id") {
-      // Selecting an anchor also deduces anchor_type and external_dependency.
+      // Selecting an anchor also deduces anchor_type. external_dependency is a
+      // stored semantic flag and is NOT changed by re-anchoring.
       t.anchor_id = String(value);
       t.anchor_type = M.deriveAnchorType(t.anchor_id);
-      t.external_dependency = M.deriveExternalDependency(t.anchor_id);
     }
     render();
   }
 
   // ---- Add / remove tasks ---------------------------------------------------
-  // Add creates a new task (default: category product, teaser anchor, offset 0,
-  // a unique stable id, and a "{n}) New task" label) and appends it to the
-  // working model, so it shows up immediately in the table/calendar/export and
-  // is persisted to localStorage. Remove deletes a task and re-anchors any
-  // dependents (see M.removeTask) so no anchor is left dangling.
   function addTask(opts) {
     var t = M.makeTask(state.model, opts || {});
     state.model = state.model.concat([t]);
@@ -463,8 +460,7 @@
 
   // ---- Export ---------------------------------------------------------------
   function buildExport() {
-    var payload = M.exportModel(state.teaser, state.launch, state.model);
-    return payload;
+    return M.exportModel(state.wave2, state.model);
   }
   function exportJSON() {
     var payload = buildExport();
@@ -486,31 +482,25 @@
   }
 
   // ---- Event wiring ---------------------------------------------------------
-  if (el.teaser) el.teaser.addEventListener("change", function () { state.teaser = el.teaser.value; render(); });
-  if (el.launch) el.launch.addEventListener("change", function () { state.launch = el.launch.value; render(); });
+  if (el.wave2) el.wave2.addEventListener("change", function () { state.wave2 = el.wave2.value; render(); });
 
   if (el.reset) el.reset.addEventListener("click", function () {
     // Reset to the CURRENTLY CHOSEN defaults (each task's default_* fields) and
-    // the default date anchors; also clears the legend filter and highlight.
+    // the default Wave 2 anchor; also clears the legend filter and highlight.
     state.model = M.resetToDefaults(state.model);
-    state.teaser = M.DEFAULT_TEASER;
-    state.launch = M.DEFAULT_LAUNCH;
+    state.wave2 = M.DEFAULT_WAVE2;
     state.activeCats = {};
     state.selectedId = null;
-    if (el.teaser) el.teaser.value = state.teaser;
-    if (el.launch) el.launch.value = state.launch;
+    if (el.wave2) el.wave2.value = state.wave2;
     render();
   });
 
   if (el.addTask) el.addTask.addEventListener("click", function () {
-    // New tasks default to product / teaser date / offset 0 (see addTask). Show
-    // the table view so the freshly added row (and its Remove control) is visible.
     addTask();
     if (state.view !== "table") setView("table");
   });
 
   if (el.makeDefaults) el.makeDefaults.addEventListener("click", function () {
-    // Promote current values to defaults so future Reset/export use them.
     state.model = M.promoteToDefaults(state.model);
     render();
   });
@@ -518,12 +508,10 @@
   if (el.restoreShipped) el.restoreShipped.addEventListener("click", function () {
     // Discard user edits AND user-chosen defaults; return to model.js shipped.
     state.model = M.defaultModel();
-    state.teaser = M.DEFAULT_TEASER;
-    state.launch = M.DEFAULT_LAUNCH;
+    state.wave2 = M.DEFAULT_WAVE2;
     state.activeCats = {};
     state.selectedId = null;
-    if (el.teaser) el.teaser.value = state.teaser;
-    if (el.launch) el.launch.value = state.launch;
+    if (el.wave2) el.wave2.value = state.wave2;
     render();
   });
 
@@ -561,8 +549,7 @@
     render();
   }
 
-  // Delegated table edits (label / category / anchor_id / offset). anchor_type and
-  // external_dependency are deduced from anchor_id, so they are not edited here.
+  // Delegated table edits (label / category / anchor_id / offset).
   document.body.addEventListener("change", function (e) {
     var t = e.target;
     var field = t && t.getAttribute ? t.getAttribute("data-edit") : null;
@@ -583,12 +570,11 @@
     t.anchor_id = t.default_anchor_id;
     t.anchor_type = M.deriveAnchorType(t.default_anchor_id);
     t.offset_business_days = t.default_offset_business_days;
-    t.external_dependency = M.deriveExternalDependency(t.default_anchor_id);
+    t.external_dependency = !!t.default_external_dependency;
     render();
   });
 
-  // Delegated per-row remove (delete this task from the model). Dependents are
-  // re-anchored by M.removeTask so nothing is left with a broken anchor.
+  // Delegated per-row remove (delete this task from the model).
   document.body.addEventListener("click", function (e) {
     var btn = e.target && e.target.closest ? e.target.closest("[data-remove]") : null;
     if (!btn) return;
@@ -603,7 +589,6 @@
     state.selectedId = state.selectedId === id ? null : id;
     render();
   });
-  // Clear-highlight button lives in the details popup.
   document.body.addEventListener("click", function (e) {
     var btn = e.target && e.target.closest ? e.target.closest("#clear-select") : null;
     if (!btn) return;
@@ -612,9 +597,6 @@
   });
 
   // ---- Draggable details popup ----------------------------------------------
-  // The popup is position:fixed (out of document flow). Dragging its header moves
-  // it via inline left/top so it never obstructs the selected item/chain. Guarded
-  // so it is inert under the headless DOM shim used by the Node smoke tests.
   var popupDrag = null;
   document.body.addEventListener("mousedown", function (e) {
     var handle = e.target && e.target.closest ? e.target.closest("#details-drag") : null;
@@ -634,9 +616,6 @@
   document.body.addEventListener("mouseup", function () { popupDrag = null; });
 
   // ---- Drag/drop: drop a pill on a day cell -> new business-day offset -------
-  // The task keeps its current anchor; its offset becomes the business-day
-  // distance from the anchor's resolved date to the drop date. Item-anchored
-  // downstream tasks then recompute from the new position.
   var dragId = null;
   el.calendar.addEventListener("dragstart", function (e) {
     var pill = e.target && e.target.closest ? e.target.closest("[data-task-id]") : null;
@@ -691,7 +670,6 @@
   };
 
   // ---- Init ----
-  if (el.teaser) el.teaser.value = state.teaser;
-  if (el.launch) el.launch.value = state.launch;
+  if (el.wave2) el.wave2.value = state.wave2;
   setView("calendar");
 })();
