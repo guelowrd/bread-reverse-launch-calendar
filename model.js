@@ -6,13 +6,19 @@
  * The schedule is a graph of anchored tasks:
  *
  *   - Every task has a STABLE id (independent of its editable label).
- *   - A task's anchor is either the single DATE anchor (`wave2_date`) or an ITEM
+ *   - A task's anchor is either one of the editable DATE anchors or an ITEM
  *     anchor (another task's id). Item-anchored tasks recompute when their parent
  *     moves, so a whole dependency chain shifts together.
  *   - Offsets are BUSINESS DAYS (Monday-Friday); weekends are skipped.
- *   - `wave2_date` is the ONLY editable date anchor; moving it shifts the whole
- *     downstream chain (Wave 2 -> feedback/changes -> stores -> Wave 3 -> Wave 4
- *     -> Wave 5 -> optional Wave 6). There is no teaser/launch pair any more.
+ *   - There are FOUR editable date anchors, each rooting its OWN independent
+ *     subgraph:
+ *       * wave2_date               Wave 2 start -> Waves 2/3/4/5 chains, decisions,
+ *                                  comms, stores, video (the bulk of the plan)
+ *       * v016_devnet_date         v0.16 on devnet (standalone)
+ *       * v016_testnet_date        v0.16 on testnet -> guardian -> client/wallet
+ *       * circle_announcement_date Circle announcement -> website -> waitlist QA
+ *     Moving ONE date anchor recomputes only its dependent subgraph; the other
+ *     three chains are unaffected. There is no single master anchor any more.
  *
  * This file is environment-agnostic: it runs unchanged in the browser (attaches
  * to window.BreadModel) and in Node (module.exports), so the UI and the Node
@@ -21,41 +27,62 @@
 (function (root) {
   "use strict";
 
-  // The only editable date anchor (shipped baseline, from the v3 model JSON).
-  var DEFAULT_WAVE2 = "2026-07-31"; // Friday: Wave 2 start
+  // ---- Editable date anchors -------------------------------------------------
+  //
+  // Each entry: stable id (also the top-level field name in the exported JSON),
+  // a human label (used in the anchor dropdown / details), a SHORT chip label
+  // shown on the calendar day cell, and the shipped default date. The order here
+  // is the order used in the export and in the control strip.
+  var DATE_ANCHORS = [
+    { id: "wave2_date",               label: "Wave 2 start",        chip: "WAVE 2",  default: "2026-07-31" }, // Friday
+    { id: "v016_devnet_date",         label: "v0.16 devnet",        chip: "DEVNET",  default: "2026-07-17" }, // Friday
+    { id: "v016_testnet_date",        label: "v0.16 testnet",       chip: "TESTNET", default: "2026-08-05" }, // Wednesday
+    { id: "circle_announcement_date", label: "Circle announcement", chip: "CIRCLE",  default: "2026-08-12" }  // Wednesday
+  ];
+  var DATE_ANCHOR_BY_ID = {};
+  DATE_ANCHORS.forEach(function (a) { DATE_ANCHOR_BY_ID[a.id] = a; });
+  var DATE_ANCHOR_IDS = DATE_ANCHORS.map(function (a) { return a.id; });
 
-  // The single reserved date-anchor id.
+  // Canonical fallback date anchor: brand-new tasks and orphaned dependents anchor
+  // here when nothing more specific applies.
   var WAVE2_ANCHOR = "wave2_date";
 
-  // Category metadata. Colors / tints / patterns preserved from the original
-  // spec. `num` is the stable numeric prefix shown (as "{num}) name") in the
-  // legend and baked into every label as "{num}) ...".
+  // Shipped default anchor dates, as a plain map keyed by anchor id.
+  var DEFAULT_ANCHORS = {};
+  DATE_ANCHORS.forEach(function (a) { DEFAULT_ANCHORS[a.id] = a.default; });
+
+  // Category metadata. `num` is the stable numeric prefix shown (as "{num}) name")
+  // in the legend and baked into every label as "{num}) ...". `color` is the
+  // category accent; `tint` is the soft card fill. (Decorative hatch/stripe/circle
+  // patterns were removed in the dashboard cleanup: category is conveyed by the
+  // soft tint plus a consistent 3px left accent, and the numeric label prefix is
+  // the non-color cue.)
   var CATEGORIES = {
-    v016:    { num: 0, name: "v0.16 dependency",   color: "#4d4d4d", tint: "#e5e7eb", pattern: "none" },
-    product: { num: 1, name: "Product / go-no-go", color: "#d55e00", tint: "#f6d7c3", pattern: "cross" },
-    stores:  { num: 2, name: "Stores",             color: "#0072b2", tint: "#cfe8f6", pattern: "vertical" },
-    video:   { num: 3, name: "Video / design",     color: "#cc79a7", tint: "#f0d4e4", pattern: "horizontal" },
-    landing: { num: 4, name: "Website / waitlist", color: "#000000", tint: "#f1f5f9", pattern: "diagonal" },
-    support: { num: 5, name: "Support",            color: "#009e73", tint: "#ccebdd", pattern: "none" },
-    comms:   { num: 6, name: "Comms",              color: "#e69f00", tint: "#f8e1a5", pattern: "none" },
-    public:  { num: 7, name: "Public moment",      color: "#f0e442", tint: "#fff7a8", pattern: "circle" }
+    v016:    { num: 0, name: "v0.16 dependency",   color: "#4d4d4d", tint: "#eef0f2" },
+    product: { num: 1, name: "Product / go-no-go", color: "#d55e00", tint: "#f7e3d5" },
+    stores:  { num: 2, name: "Stores",             color: "#0072b2", tint: "#d9ebf7" },
+    video:   { num: 3, name: "Video / design",     color: "#cc79a7", tint: "#f3ddea" },
+    landing: { num: 4, name: "Website / waitlist", color: "#555555", tint: "#eceef0" },
+    support: { num: 5, name: "Support",            color: "#009e73", tint: "#d5efe6" },
+    comms:   { num: 6, name: "Comms",              color: "#b5850b", tint: "#f6e8c6" },
+    public:  { num: 7, name: "Public moment",      color: "#8a7d00", tint: "#f4efb8" }
   };
 
   var CATEGORY_ORDER = ["v016", "product", "stores", "video", "landing", "support", "comms", "public"];
 
   // ---- Derived-field helper --------------------------------------------------
   //
-  // `anchor_type` is deduced from `anchor_id`: selecting the Wave 2 start date
-  // makes a task a date-anchor; anchoring to any other task makes it an
+  // `anchor_type` is deduced from `anchor_id`: selecting one of the editable date
+  // anchors makes a task a date-anchor; anchoring to any other task makes it an
   // item-anchor. This helper is the single source of truth for that deduction.
   //
-  // `external_dependency`, by contrast, is now a STORED semantic flag (some item
+  // `external_dependency`, by contrast, is a STORED semantic flag (some item
   // anchors are external dependencies -- v0.16, store approvals, Circle, website
   // going live -- and some are not). It ships from the model JSON, is carried in
   // `default_external_dependency` for reset, and is preserved (never re-derived)
   // through clone / reset / import / export.
   function isDateAnchorId(anchorId) {
-    return anchorId === WAVE2_ANCHOR;
+    return Object.prototype.hasOwnProperty.call(DATE_ANCHOR_BY_ID, anchorId);
   }
   function deriveAnchorType(anchorId) {
     return isDateAnchorId(anchorId) ? "date_anchor" : "item_anchor";
@@ -63,7 +90,7 @@
 
   // ---- Shipped task list -----------------------------------------------------
   //
-  // Each row: stable id, editable label, category, anchor_id (wave2_date or
+  // Each row: stable id, editable label, category, anchor_id (a date-anchor id or
   // another task id), signed business-day offset, and the stored
   // external_dependency flag. `anchor_type` is DERIVED from anchor_id (see helper
   // above). This mirrors baseline-model.json exactly. Item anchors may point at a
@@ -71,37 +98,39 @@
   // full graph by id before resolving, so authoring order does not matter. Display
   // sorts by resolved date.
   var SHIPPED_SPEC = [
-    { id: "wave2_decision",         label: "1) PRODUCT: Wave 2 decision",                    category: "product", anchor_id: WAVE2_ANCHOR,          offset: -1, external: false },
-    { id: "support_ready",          label: "5) SUPPORT: intake workflow ready",              category: "support", anchor_id: "wave2_start",          offset: -1, external: false },
-    { id: "wave2_start",            label: "1) PRODUCT: Wave 2 company testing",             category: "product", anchor_id: WAVE2_ANCHOR,          offset:  0, external: false },
-    { id: "v016_devnet",            label: "0) v0.16 on devnet",                             category: "v016",    anchor_id: "wave2_start",          offset: -5, external: true  },
-    { id: "guardian_upgrade_done",  label: "0) Guardian upgrade done",                       category: "v016",    anchor_id: "v016_testnet",         offset: -2, external: true  },
-    { id: "v016_testnet",           label: "0) v0.16 on testnet",                            category: "v016",    anchor_id: "v016_devnet",          offset:  8, external: true  },
-    { id: "client_wallet_done",     label: "0) Client/wallet/Epoch upgrade done",            category: "v016",    anchor_id: "guardian_upgrade_done", offset:  4, external: true  },
-    { id: "wave2_feedback_changes", label: "1) PRODUCT: Wave 2 feedback + changes",          category: "product", anchor_id: "wave2_start",          offset:  3, external: false },
-    { id: "wave2_stores_submit",    label: "2) STORES: submit post-Wave-2 build",            category: "stores",  anchor_id: "wave2_feedback_changes", offset: 0, external: false },
-    { id: "wave2_stores_live",      label: "2) STORES: post-Wave-2 build live",              category: "stores",  anchor_id: "wave2_stores_submit",  offset:  1, external: true  },
-    { id: "wave3_recruiting_ready", label: "6) COMMS: Wave 3 tester pack ready",             category: "comms",   anchor_id: "wave3_start",          offset: -1, external: false },
-    { id: "wave3_start",            label: "1) PRODUCT: Wave 3 trusted-network testing",     category: "product", anchor_id: "v016_testnet",         offset:  3, external: false },
-    { id: "wave3_feedback_changes", label: "1) PRODUCT: Wave 3 feedback + changes",          category: "product", anchor_id: "wave3_start",          offset:  3, external: false },
-    { id: "wave3_stores_submit",    label: "2) STORES: submit post-Wave-3 build",            category: "stores",  anchor_id: "wave3_feedback_changes", offset: 0, external: false },
-    { id: "wave3_stores_live",      label: "2) STORES: post-Wave-3 build live",              category: "stores",  anchor_id: "wave3_stores_submit",  offset:  1, external: true  },
-    { id: "circle_announcement",    label: "7) PUBLIC: Circle announcement",                 category: "public",  anchor_id: "v016_testnet",         offset:  5, external: true  },
-    { id: "waitlist_qa",            label: "4) WAITLIST: form + CRM flow ready",             category: "landing", anchor_id: "circle_announcement",  offset: -1, external: false },
-    { id: "website_out",            label: "4) WEBSITE: new website + Bread waitlist live",  category: "landing", anchor_id: "circle_announcement",  offset:  0, external: true  },
-    { id: "visual_identity_board",  label: "3) VISUAL IDENTITY: board ready",                category: "video",   anchor_id: "wave4_start",          offset: -7, external: false },
-    { id: "teaser_final",           label: "3) VIDEO: teaser final",                         category: "video",   anchor_id: "wave4_start",          offset: -1, external: false },
-    { id: "wave4_comms_ready",      label: "6) COMMS: Wave 4 channels + waitlist CTA ready", category: "comms",   anchor_id: "wave4_start",          offset: -1, external: false },
-    { id: "wave4_start",            label: "7) PUBLIC: Wave 4 teaser + waitlist push",       category: "public",  anchor_id: "website_out",          offset:  5, external: false },
-    { id: "wave4_feedback_changes", label: "1) PRODUCT: Wave 4 feedback + changes",          category: "product", anchor_id: "wave4_start",          offset:  3, external: false },
-    { id: "wave4_stores_submit",    label: "2) STORES: submit post-Wave-4 build",            category: "stores",  anchor_id: "wave4_feedback_changes", offset: 0, external: false },
-    { id: "wave4_stores_live",      label: "2) STORES: post-Wave-4 build live",              category: "stores",  anchor_id: "wave4_stores_submit",  offset:  1, external: true  },
-    { id: "wave5_comms_ready",      label: "6) COMMS: Wave 5 X push + How Bread Works ready", category: "comms",  anchor_id: "wave5_start",          offset: -1, external: false },
-    { id: "wave5_start",            label: "7) PUBLIC: Wave 5 X waitlist follow-up",         category: "public",  anchor_id: "wave4_stores_live",    offset:  1, external: false },
-    { id: "wave5_feedback_changes", label: "1) PRODUCT: Wave 5 feedback + changes",          category: "product", anchor_id: "wave5_start",          offset:  3, external: false },
-    { id: "wave5_stores_submit",    label: "2) STORES: submit post-Wave-5 build",            category: "stores",  anchor_id: "wave5_feedback_changes", offset: 0, external: false },
-    { id: "wave5_stores_live",      label: "2) STORES: post-Wave-5 build live",              category: "stores",  anchor_id: "wave5_stores_submit",  offset:  1, external: true  },
-    { id: "wave6_start",            label: "7) PUBLIC: Wave 6 targeted push if needed",      category: "public",  anchor_id: "wave5_stores_live",    offset:  1, external: false }
+    { id: "v016_devnet",            label: "0) v0.16 on devnet",                              category: "v016",    anchor_id: "v016_devnet_date",         offset:  0, external: true  },
+    { id: "wave2_decision",         label: "1) PRODUCT: Wave 2 decision",                     category: "product", anchor_id: "wave2_start",              offset: -1, external: false },
+    { id: "support_ready",          label: "5) SUPPORT: intake workflow ready",               category: "support", anchor_id: "wave2_start",              offset: -1, external: false },
+    { id: "wave2_start",            label: "1) PRODUCT: Wave 2 company-wide testing",          category: "product", anchor_id: "wave2_date",               offset:  0, external: false },
+    { id: "wave2_feedback_changes", label: "1) PRODUCT: Wave 2 changes applied",              category: "product", anchor_id: "wave2_start",              offset:  3, external: false },
+    { id: "wave2_stores_submit",    label: "2) STORES: submit post-Wave-2 build",             category: "stores",  anchor_id: "wave2_feedback_changes",   offset:  0, external: false },
+    { id: "wave2_stores_live",      label: "2) STORES: post-Wave-2 build live",               category: "stores",  anchor_id: "wave2_stores_submit",      offset:  1, external: true  },
+    { id: "guardian_upgrade_done",  label: "0) Guardian upgrade done",                        category: "v016",    anchor_id: "v016_testnet",             offset: -2, external: true  },
+    { id: "v016_testnet",           label: "0) v0.16 on testnet",                             category: "v016",    anchor_id: "v016_testnet_date",        offset:  0, external: true  },
+    { id: "client_wallet_done",     label: "0) Client/wallet/Epoch upgrade done",             category: "v016",    anchor_id: "guardian_upgrade_done",    offset:  4, external: true  },
+    { id: "wave3_decision",         label: "1) PRODUCT: Wave 3 decision",                     category: "product", anchor_id: "wave3_start",              offset: -1, external: false },
+    { id: "wave3_recruiting_ready", label: "6) COMMS: Wave 3 tester pack ready",              category: "comms",   anchor_id: "wave3_start",              offset: -1, external: false },
+    { id: "wave3_start",            label: "1) PRODUCT: Wave 3 trusted-network testing",      category: "product", anchor_id: "wave2_start",              offset:  6, external: false },
+    { id: "wave3_feedback_changes", label: "1) PRODUCT: Wave 3 changes applied",              category: "product", anchor_id: "wave3_start",              offset:  3, external: false },
+    { id: "wave3_stores_submit",    label: "2) STORES: submit post-Wave-3 build",             category: "stores",  anchor_id: "wave3_feedback_changes",   offset:  0, external: false },
+    { id: "wave3_stores_live",      label: "2) STORES: post-Wave-3 build live",               category: "stores",  anchor_id: "wave3_stores_submit",      offset:  1, external: true  },
+    { id: "circle_announcement",    label: "7) PUBLIC: Circle announcement",                  category: "public",  anchor_id: "circle_announcement_date", offset:  0, external: true  },
+    { id: "waitlist_qa",            label: "4) WAITLIST: form + CRM flow ready",              category: "landing", anchor_id: "website_out",              offset: -1, external: false },
+    { id: "website_out",            label: "4) WEBSITE: new website + Bread waitlist live",    category: "landing", anchor_id: "circle_announcement",      offset:  0, external: true  },
+    { id: "visual_identity_board",  label: "3) VISUAL IDENTITY: board ready",                 category: "video",   anchor_id: "wave4_start",              offset: -7, external: false },
+    { id: "teaser_final",           label: "3) VIDEO: teaser final",                          category: "video",   anchor_id: "wave4_start",              offset: -1, external: false },
+    { id: "wave4_comms_ready",      label: "6) COMMS: Wave 4 channels + waitlist CTA ready",   category: "comms",   anchor_id: "wave4_start",              offset: -1, external: false },
+    { id: "wave4_decision",         label: "1) PRODUCT: Wave 4 decision",                     category: "product", anchor_id: "wave4_start",              offset: -1, external: false },
+    { id: "wave4_start",            label: "7) PUBLIC: Wave 4 teaser + waitlist push",        category: "public",  anchor_id: "wave3_start",              offset:  6, external: false },
+    { id: "wave4_feedback_changes", label: "1) PRODUCT: Wave 4 changes applied",              category: "product", anchor_id: "wave4_start",              offset:  3, external: false },
+    { id: "wave4_stores_submit",    label: "2) STORES: submit post-Wave-4 build",             category: "stores",  anchor_id: "wave4_feedback_changes",   offset:  0, external: false },
+    { id: "wave4_stores_live",      label: "2) STORES: post-Wave-4 build live",               category: "stores",  anchor_id: "wave4_stores_submit",      offset:  1, external: true  },
+    { id: "wave5_comms_ready",      label: "6) COMMS: Wave 5 X push + How Bread Works ready",  category: "comms",   anchor_id: "wave5_start",              offset: -1, external: false },
+    { id: "wave5_decision",         label: "1) PRODUCT: Wave 5 decision",                     category: "product", anchor_id: "wave5_start",              offset: -1, external: false },
+    { id: "wave5_start",            label: "7) PUBLIC: Wave 5 X waitlist follow-up",          category: "public",  anchor_id: "wave4_start",              offset:  6, external: false },
+    { id: "wave5_feedback_changes", label: "1) PRODUCT: Wave 5 changes applied",              category: "product", anchor_id: "wave5_start",              offset:  3, external: false },
+    { id: "wave5_stores_submit",    label: "2) STORES: submit post-Wave-5 build",             category: "stores",  anchor_id: "wave5_feedback_changes",   offset:  0, external: false },
+    { id: "wave5_stores_live",      label: "2) STORES: post-Wave-5 build live",               category: "stores",  anchor_id: "wave5_stores_submit",      offset:  1, external: true  }
   ];
 
   // Expand a spec row into a full task object whose default_* fields mirror the
@@ -168,6 +197,26 @@
   // A fresh working copy of the shipped model.
   function defaultModel() { return cloneTasks(SHIPPED_TASKS); }
 
+  // A fresh copy of the shipped default anchor dates.
+  function defaultAnchors() {
+    var out = {};
+    DATE_ANCHOR_IDS.forEach(function (id) { out[id] = DEFAULT_ANCHORS[id]; });
+    return out;
+  }
+
+  // Coerce an arbitrary (possibly partial / stale) anchors object into a full,
+  // valid anchor map: every known anchor id is present, non-string / missing
+  // values fall back to the shipped default. Unknown keys are dropped.
+  function normalizeAnchors(anchors) {
+    var out = {};
+    anchors = anchors || {};
+    DATE_ANCHOR_IDS.forEach(function (id) {
+      var v = anchors[id];
+      out[id] = (typeof v === "string" && v) ? v : DEFAULT_ANCHORS[id];
+    });
+    return out;
+  }
+
   // Set every task's default_* to its current values (used by "make current
   // values the defaults"). Returns a new array.
   function promoteToDefaults(tasks) {
@@ -202,17 +251,17 @@
   //
   // The table view can add and remove tasks. Ids are STABLE, so add generates a
   // collision-free id and remove repairs any dependents that anchored to the
-  // removed task (see removeTask). The reserved date-anchor id (wave2_date) is not
-  // a task and can never be generated or removed here.
+  // removed task (see removeTask). The reserved date-anchor ids are not tasks and
+  // can never be generated or removed here.
 
-  // Produce a unique, id-safe slug that is not already used by a task and is not
-  // the reserved date-anchor id. Falls back to base_2, base_3, ...
+  // Produce a unique, id-safe slug that is not already used by a task and is not a
+  // reserved date-anchor id. Falls back to base_2, base_3, ...
   function uniqueTaskId(tasks, base) {
     var used = {};
     (tasks || []).forEach(function (t) { used[t.id] = true; });
     var slug = String(base == null ? "" : base).replace(/[^a-z0-9_]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase();
     if (!slug) slug = "task";
-    function taken(id) { return used[id] || id === WAVE2_ANCHOR; }
+    function taken(id) { return used[id] || isDateAnchorId(id); }
     if (!taken(slug)) return slug;
     var i = 2;
     while (taken(slug + "_" + i)) i++;
@@ -258,7 +307,7 @@
 
   // Remove a task by id and return a new task array. Dependents that anchored to
   // the removed task are NOT left with a broken anchor: each is re-anchored to
-  // the removed task's OWN anchor when that is still valid (the date anchor, or a
+  // the removed task's OWN anchor when that is still valid (a date anchor, or a
   // surviving task), preserving the dependent's offset; otherwise it falls back
   // to the Wave 2 date with offset 0. Both the live anchor and the stored default
   // anchor are repaired, so a later Reset cannot resurrect the broken id.
@@ -366,10 +415,15 @@
   // are detected and reported per task rather than throwing, so the UI can render
   // the rest of the model and surface a clear error for the broken rows.
   //
+  // `anchors` is a map of date-anchor id -> ISO date (see normalizeAnchors). Each
+  // date-anchored task reads its own anchor's date, so the four anchors seed four
+  // independent subgraphs.
+  //
   // Returns { byId, order, errors } where:
   //   byId[id]  = { date, anchor_date, error }  (date/anchor_date null if broken)
   //   errors    = [ { id, message } ]           (one per broken task)
-  function resolveGraph(tasks, wave2) {
+  function resolveGraph(tasks, anchors) {
+    var A = normalizeAnchors(anchors);
     var byIdTask = {};
     tasks.forEach(function (t) { byIdTask[t.id] = t; });
 
@@ -402,11 +456,11 @@
 
       var anchorDate = null;
       if (t.anchor_type === "date_anchor") {
-        if (t.anchor_id === WAVE2_ANCHOR) anchorDate = wave2;
+        if (isDateAnchorId(t.anchor_id)) anchorDate = A[t.anchor_id];
         else return fail(id, "invalid date anchor '" + t.anchor_id + "'");
       } else if (t.anchor_type === "item_anchor") {
-        if (t.anchor_id === WAVE2_ANCHOR) {
-          return fail(id, "item anchor points at the date anchor id '" + t.anchor_id + "'; set anchor to a task or the Wave 2 date");
+        if (isDateAnchorId(t.anchor_id)) {
+          return fail(id, "item anchor points at the date anchor id '" + t.anchor_id + "'; set anchor to a task or a date anchor");
         }
         if (!byIdTask[t.anchor_id]) {
           return fail(id, "invalid anchor id '" + t.anchor_id + "'");
@@ -438,23 +492,24 @@
   // ---- Core recalculation ----------------------------------------------------
   //
   // opts:
-  //   wave2  ISO string (defaults to DEFAULT_WAVE2)
-  //   tasks  working task array (defaults to a fresh shipped model)
+  //   anchors  date-anchor map (defaults to a fresh shipped anchor map)
+  //   tasks    working task array (defaults to a fresh shipped model)
   //
-  // Returns { wave2, tasks: [ resolved... ], errors, defaultDates }.
+  // Returns { anchors, tasks: [ resolved... ], errors, defaultDates }.
   // Each resolved task is the task object plus { date, weekend, anchor_date,
   // error, resolved, moved }. `moved` is true when the resolved date differs from
-  // the date the task's OWN default_* fields would produce.
+  // the date the task's OWN default_* fields would produce (under the same
+  // anchors), i.e. a task-level edit -- not merely an anchor move.
   function recalc(opts) {
     opts = opts || {};
-    var wave2 = opts.wave2 || DEFAULT_WAVE2;
+    var anchors = normalizeAnchors(opts.anchors);
     var tasks = opts.tasks ? opts.tasks : defaultModel();
 
-    var g = resolveGraph(tasks, wave2);
+    var g = resolveGraph(tasks, anchors);
 
     // Resolve the same tasks under their stored defaults to compute `moved`.
     var defaultTasks = resetToDefaults(tasks);
-    var gd = resolveGraph(defaultTasks, wave2);
+    var gd = resolveGraph(defaultTasks, anchors);
 
     var resolved = tasks.map(function (t) {
       var r = g.byId[t.id] || { date: null, anchor_date: null, error: "unresolved" };
@@ -471,7 +526,7 @@
     });
 
     return {
-      wave2: wave2,
+      anchors: anchors,
       tasks: resolved,
       errors: g.errors,
       defaultDates: gd.byId
@@ -480,9 +535,8 @@
 
   // ---- Validation / warnings -------------------------------------------------
   //
-  // Produces graph errors (cycles / invalid anchors). There is no teaser/launch
-  // pair and no launch date, so the old gap and critical-after-launch warnings
-  // are gone: an unresolved anchor is the only structural problem to surface.
+  // Produces graph errors (cycles / invalid anchors). An unresolved anchor is the
+  // only structural problem to surface.
   function validate(result) {
     var warnings = [];
 
@@ -502,7 +556,7 @@
 
   // The chain of anchors from a task up to its date anchor: returns an ordered
   // list of ids [self, parent, ..., grandparent] ending at the item whose anchor
-  // is the date anchor. Stops on cycles/invalid ids.
+  // is a date anchor. Stops on cycles/invalid ids.
   function anchorChain(tasks, id) {
     var byId = {};
     tasks.forEach(function (t) { byId[t.id] = t; });
@@ -519,18 +573,37 @@
     return chain;
   }
 
-  // Export the working model as a plain JSON-serializable object.
-  function exportModel(wave2, tasks) {
-    return {
+  // The date-anchor id that terminates a task's anchor chain (e.g. "wave2_date"),
+  // or null if the chain does not resolve to a date anchor. Used by the UI to
+  // highlight the correct anchor cell for a selected task.
+  function terminalDateAnchor(tasks, id) {
+    var chain = anchorChain(tasks, id);
+    if (!chain.length) return null;
+    var last = findTask(tasks, chain[chain.length - 1]);
+    if (last && last.anchor_type === "date_anchor" && isDateAnchorId(last.anchor_id)) {
+      return last.anchor_id;
+    }
+    return null;
+  }
+
+  // Export the working model as a plain JSON-serializable object. The four date
+  // anchors are emitted as top-level fields in the canonical order.
+  function exportModel(anchors, tasks) {
+    var A = normalizeAnchors(anchors);
+    var out = {
       version: 3,
-      exported_at: null, // caller may stamp a timestamp
-      wave2_date: wave2,
-      tasks: cloneTasks(tasks)
+      exported_at: null // caller may stamp a timestamp
     };
+    DATE_ANCHOR_IDS.forEach(function (id) { out[id] = A[id]; });
+    out.tasks = cloneTasks(tasks);
+    return out;
   }
 
   var api = {
-    DEFAULT_WAVE2: DEFAULT_WAVE2,
+    DATE_ANCHORS: DATE_ANCHORS,
+    DATE_ANCHOR_IDS: DATE_ANCHOR_IDS,
+    DATE_ANCHOR_BY_ID: DATE_ANCHOR_BY_ID,
+    DEFAULT_ANCHORS: DEFAULT_ANCHORS,
     WAVE2_ANCHOR: WAVE2_ANCHOR,
     CATEGORIES: CATEGORIES,
     CATEGORY_ORDER: CATEGORY_ORDER,
@@ -538,6 +611,8 @@
     isDateAnchorId: isDateAnchorId,
     deriveAnchorType: deriveAnchorType,
     defaultModel: defaultModel,
+    defaultAnchors: defaultAnchors,
+    normalizeAnchors: normalizeAnchors,
     cloneTask: cloneTask,
     cloneTasks: cloneTasks,
     promoteToDefaults: promoteToDefaults,
@@ -559,6 +634,7 @@
     validate: validate,
     findTask: findTask,
     anchorChain: anchorChain,
+    terminalDateAnchor: terminalDateAnchor,
     exportModel: exportModel
   };
 

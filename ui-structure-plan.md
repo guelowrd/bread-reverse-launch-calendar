@@ -2,18 +2,21 @@
 
 > **Status: superseded planning doc (kept for design history).** This file was
 > the early UI/layout sketch and predates the shipped anchor-**graph** model. The
-> shipped artifact ships a **29-task business-day dependency graph** (default
-> **teaser 2026-08-06**, **launch 2026-08-13**), not the older "every task hangs
-> off teaser or launch" list once drafted here, and it hides the derived
-> `anchor_type` / `external_dependency` fields (no `Ext. dep` / `Anchor type` UI,
-> no `DEP` badge). Where this document disagrees with the shipped app, the shipped
-> app wins. For the authoritative task list, anchor/offset model, and behavior,
-> see **`README.md`** (esp. "Default model: the shipped 29-row schedule" and
-> "Anchor model") and the QA record in **`VERIFICATION.md`**. Sections 6 and 8
-> below have been refreshed to the shipped model; the layout/legend/responsive
-> guidance (sections 1-5, 7, 9) is still broadly accurate, except the early date
-> defaults and the editable Ext. dep / Anchor type fields it sketches, which the
-> shipped app changed (see README).
+> shipped artifact ships a **33-task business-day dependency graph** rooted at
+> **four editable date anchors** — Wave 2 start (2026-07-31), v0.16 devnet
+> (2026-07-17), v0.16 testnet (2026-08-05), Circle announcement (2026-08-12) — not
+> the older teaser/launch "every task hangs off teaser or launch" list once
+> drafted here. It hides the derived `anchor_type` and the stored
+> `external_dependency` fields (no `Ext. dep` / `Anchor type` UI), and the
+> streamlined dashboard uses a soft tint + 3px left accent per category with **no**
+> `EXT`/`DEP` badge and **no** decorative patterns. Where this document disagrees
+> with the shipped app, the shipped app wins. For the authoritative task list,
+> anchor/offset model, and behavior, see **`README.md`** (esp. "Default model: the
+> shipped 33-row schedule", "The four date anchors", and "Anchor model") and the QA
+> record in **`VERIFICATION.md`**. The layout/legend/responsive guidance below is
+> still broadly accurate in spirit, except the early date defaults, the single/two
+> date inputs, the editable Ext. dep / Anchor type fields, and the pattern/badge
+> cues it sketches, which the shipped app changed (see README).
 
 Source visual inspected: `/workspace/team/pam/bread-reverse-calendar-aug6-2026.png`.
 
@@ -245,8 +248,10 @@ Legend requirements:
 > replaces the earlier flat list once sketched here. The full, authoritative
 > task list — labels (`{n}) text`), anchors, business-day offsets, and resolved
 > default dates at teaser 2026-08-06 / launch 2026-08-13 — lives in `README.md`
-> ("Default model: the shipped 29-row schedule"). Do not maintain a second copy
-> here; that table is the single source of truth.
+> ("Default model: the shipped 33-row schedule"). Do not maintain a second copy
+> here; that table is the single source of truth. (The dates/counts in this
+> historical section are two generations stale — see README for the current
+> four-anchor, 33-task model.)
 
 The shipped 29-task set **is** the attached `bread-calendar-model.json` baseline
 (27 tasks, kept as `baseline-model.json`) plus the two tasks added in this

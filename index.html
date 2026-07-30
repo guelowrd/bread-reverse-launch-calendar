@@ -12,22 +12,43 @@
   </header>
 
   <div class="controls">
-    <div class="control">
-      <label for="wave2">Wave 2 start</label>
-      <input type="date" id="wave2">
-    </div>
+    <fieldset class="control anchors">
+      <legend>Date anchors</legend>
+      <div class="anchor-fields">
+        <div class="anchor-field">
+          <label for="wave2_date">Wave 2 start</label>
+          <input type="date" id="wave2_date">
+        </div>
+        <div class="anchor-field">
+          <label for="v016_devnet_date">v0.16 devnet</label>
+          <input type="date" id="v016_devnet_date">
+        </div>
+        <div class="anchor-field">
+          <label for="v016_testnet_date">v0.16 testnet</label>
+          <input type="date" id="v016_testnet_date">
+        </div>
+        <div class="anchor-field">
+          <label for="circle_announcement_date">Circle announcement</label>
+          <input type="date" id="circle_announcement_date">
+        </div>
+      </div>
+    </fieldset>
     <div class="control view-toggle">
       <label>View</label>
-      <button id="view-cal">Calendar</button>
-      <button id="view-table">Table</button>
+      <div class="btn-row">
+        <button id="view-cal">Calendar</button>
+        <button id="view-table">Table</button>
+      </div>
     </div>
     <div class="control model-actions">
       <label>Model</label>
-      <button id="add-task" title="Add a new task (product / teaser date / offset 0) to the model">Add task</button>
-      <button class="reset" id="reset">Reset to defaults</button>
-      <button id="make-defaults" title="Make the current values the defaults used by Reset and export">Set current as defaults</button>
-      <button id="restore-shipped" title="Discard edits and user defaults; return to the shipped model">Restore shipped defaults</button>
-      <button id="export" title="Download the current task model (labels, anchors, offsets, defaults) as JSON">Export JSON</button>
+      <div class="btn-row">
+        <button id="add-task" title="Add a new task (product / Wave 2 date anchor / offset 0) to the model">Add task</button>
+        <button class="reset" id="reset">Reset to defaults</button>
+        <button id="make-defaults" title="Make the current values the defaults used by Reset and export">Set current as defaults</button>
+        <button id="restore-shipped" title="Discard edits and user defaults; return to the shipped model">Restore shipped defaults</button>
+        <button id="export" title="Download the current task model (labels, anchors, offsets, defaults) as JSON">Export JSON</button>
+      </div>
     </div>
   </div>
 

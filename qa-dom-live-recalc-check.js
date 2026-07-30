@@ -1,9 +1,10 @@
 /*
- * QA DOM scenario check for Bread Reverse Launch Calendar (wave-based v3).
- * Drives the real app.js render/event path with a tiny DOM shim to verify live
- * recalculation off the single Wave 2 date anchor, item-anchor downstream
- * recompute, drag/drop, click-highlight, the legend category filter, external-
- * dependency cues, and add/remove.
+ * QA DOM scenario check for Bread Reverse Launch Calendar (wave-based v3, four
+ * date anchors). Drives the real app.js render/event path with a tiny DOM shim to
+ * verify live recalculation off the four editable date anchors (each moving only
+ * its own subgraph), item-anchor downstream recompute, drag/drop, click-highlight,
+ * the legend category filter, the streamlined (no-EXT-badge) card treatment, and
+ * add/remove.
  * Run: node qa-dom-live-recalc-check.js
  */
 const fs = require("fs");
@@ -11,7 +12,8 @@ const path = require("path");
 const vm = require("vm");
 const M = require("./model.js");
 
-const TASK_COUNT = 31;
+const TASK_COUNT = 33;
+const STORAGE_KEY = "bread-calendar-model-v3r2";
 
 function makeEl(id) {
   const listeners = {};
@@ -29,7 +31,8 @@ function makeEl(id) {
 }
 
 const els = {};
-["wave2", "reset", "add-task", "make-defaults", "restore-shipped", "export",
+["wave2_date", "v016_devnet_date", "v016_testnet_date", "circle_announcement_date",
+ "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach((id) => { const e = makeEl(id); e.classList._owner = e; els[id] = e; });
 const body = makeEl("body");
@@ -53,7 +56,7 @@ const App = window.BreadApp;
 let pass = 0;
 function assert(cond, msg) { if (!cond) throw new Error(msg); pass++; }
 function setTableView() { els["view-table"]._fire("click"); }
-function setWave2(iso) { els.wave2.value = iso; els.wave2._fire("change"); }
+function setAnchor(id, iso) { els[id].value = iso; els[id]._fire("change"); }
 function rowHas(label, date) {
   return els.tableview.innerHTML.includes(`<td class="date">${date}`) && els.tableview.innerHTML.includes(label);
 }
@@ -80,56 +83,72 @@ function firePillClick(taskId) {
   } });
 }
 
-// The whole graph is rooted at the single Wave 2 date, so moving that date moves
-// every task by the same business-day distance. Verify Wave 2 and Wave 6 rows.
+// Moving the Wave 2 date moves the Wave 2 subgraph (Wave 2 start + the Waves
+// 3/4/5 chains). Verify Wave 2 start and a deep Wave 5 task through the UI.
 function report(name, wave2) {
-  setWave2(wave2);
-  const expWave2 = M.addBusinessDays(wave2, 0);
-  const expWave6 = M.findTask(M.recalc({ wave2, tasks: M.defaultModel() }).tasks, "wave6_start").date;
-  assert(rowHas("1) PRODUCT: Wave 2 company testing", expWave2), `${name}: Wave 2 start row did not render ${expWave2}`);
-  assert(rowHas("7) PUBLIC: Wave 6 targeted push if needed", expWave6), `${name}: Wave 6 row did not render ${expWave6}`);
-  console.log(`${name}: wave2=${wave2} -> Wave 2 start ${expWave2}, Wave 6 ${expWave6}`);
+  setAnchor("wave2_date", wave2);
+  const exp = M.recalc({ anchors: Object.assign(M.defaultAnchors(), { wave2_date: wave2 }), tasks: M.defaultModel() });
+  const expWave2 = M.findTask(exp.tasks, "wave2_start").date;
+  const expWave5 = M.findTask(exp.tasks, "wave5_stores_live").date;
+  assert(rowHas("1) PRODUCT: Wave 2 company-wide testing", expWave2), `${name}: Wave 2 start row did not render ${expWave2}`);
+  assert(rowHas("2) STORES: post-Wave-5 build live", expWave5), `${name}: Wave 5 store-live row did not render ${expWave5}`);
+  console.log(`${name}: wave2=${wave2} -> Wave 2 start ${expWave2}, Wave 5 store-live ${expWave5}`);
 }
 
 setTableView();
-assert(tableRows() === TASK_COUNT, "table renders 31 rows");
+assert(tableRows() === TASK_COUNT, "table renders 33 rows");
 report("default anchor", "2026-07-31");
 report("Wave 2 moved +5bd", "2026-08-07");
 report("Wave 2 moved earlier", "2026-07-20");
 els.reset._fire("click");
-assert(els.wave2.value === "2026-07-31", "reset restores the default Wave 2 date");
+assert(els.wave2_date.value === "2026-07-31", "reset restores the default Wave 2 date");
 
-// ---- Moving the Wave 2 date shifts the ENTIRE graph by the same distance ----
-const before = M.recalc({ wave2: "2026-07-31", tasks: M.defaultModel() });
-setWave2("2026-08-07"); // +5 business days
-const after = M.recalc({ wave2: App.state.wave2, tasks: App.state.model });
-assert(
-  M.SHIPPED_TASKS.every((s) => M.findTask(after.tasks, s.id).date === M.addBusinessDays(M.findTask(before.tasks, s.id).date, 5)),
-  "moving the Wave 2 date shifts every task by the same +5 business days"
-);
-console.log("whole-graph shift off the single Wave 2 date verified through app.js");
-els.reset._fire("click");
+// ---- Each date anchor moves ONLY its own subgraph through the UI -----------
+const FIXED = {
+  v016_devnet_date: ["v016_devnet"],
+  v016_testnet_date: ["v016_testnet", "guardian_upgrade_done", "client_wallet_done"],
+  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa"],
+};
+const owned = {};
+Object.keys(FIXED).forEach((aid) => FIXED[aid].forEach((id) => { owned[id] = aid; }));
+const SUBGRAPHS = Object.assign({ wave2_date: M.SHIPPED_TASKS.map((t) => t.id).filter((id) => !owned[id]) }, FIXED);
+M.DATE_ANCHOR_IDS.forEach((movedAnchor) => {
+  const before = M.recalc({ anchors: M.defaultAnchors(), tasks: M.defaultModel() });
+  els["restore-shipped"]._fire("click");
+  setAnchor(movedAnchor, M.addBusinessDays(M.defaultAnchors()[movedAnchor], 5));
+  const after = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
+  const members = new Set(SUBGRAPHS[movedAnchor]);
+  const ok = M.SHIPPED_TASKS.every((s) => {
+    const d0 = M.findTask(before.tasks, s.id).date;
+    const d1 = M.findTask(after.tasks, s.id).date;
+    return d1 === (members.has(s.id) ? M.addBusinessDays(d0, 5) : d0);
+  });
+  assert(ok, `moving ${movedAnchor} +5bd through the UI moved only its subgraph`);
+});
+els["restore-shipped"]._fire("click");
+console.log("per-anchor subgraph independence verified through app.js (each date anchor moves only its own chain)");
 
 // ---- Item-anchor downstream recompute through the UI -----------------------
 setTableView();
-const testnetBefore = M.findTask(M.recalc({ wave2: App.state.wave2, tasks: App.state.model }).tasks, "v016_testnet").date;
-fireEdit("offset", "v016_devnet", "-2"); // 3bd later than default -5
-const afterEdit = M.recalc({ wave2: App.state.wave2, tasks: App.state.model });
-assert(M.findTask(afterEdit.tasks, "v016_testnet").date === M.addBusinessDays(testnetBefore, 3),
-  "downstream v016_testnet followed the parent (+3bd) through an app.js table edit");
-assert(M.findTask(afterEdit.tasks, "wave3_start").moved === true,
-  "wave3_start (anchored to testnet) is flagged moved after the parent edit");
+const clientBefore = M.findTask(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).tasks, "client_wallet_done").date;
+fireEdit("offset", "guardian_upgrade_done", "1"); // 3bd later than default -2
+const afterEdit = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
+assert(M.findTask(afterEdit.tasks, "client_wallet_done").date === M.addBusinessDays(clientBefore, 3),
+  "downstream client_wallet_done followed the parent (+3bd) through an app.js table edit");
+assert(M.findTask(afterEdit.tasks, "client_wallet_done").moved === true,
+  "client_wallet_done is flagged moved after the parent edit");
 console.log("item-anchor downstream recompute verified through app.js table edit");
 els.reset._fire("click");
 
-// ---- Anchor type deduced; external dependency shown, not editable ----------
+// ---- Anchor type deduced; external dependency stored (no EXT badge) --------
 setTableView();
 assert(!els.tableview.innerHTML.includes('data-edit="anchor_type"') && !els.tableview.innerHTML.includes("Anchor type"), "no Anchor type control/column in the table");
 assert(!els.tableview.innerHTML.includes('data-edit="dep"') && !els.tableview.innerHTML.includes('data-edit="external'), "external_dependency is not an editable control");
-assert(els.tableview.innerHTML.includes('class="ext-mark"'), "external dependencies are marked (EXT) in the table");
-assert(els.tableview.innerHTML.includes("<optgroup") && els.tableview.innerHTML.includes(">Wave 2 start<") &&
+assert(!els.tableview.innerHTML.includes('class="ext-mark"') && !els.tableview.innerHTML.includes(">EXT<"), "no EXT badge/mark in the table (streamlined cleanup)");
+assert(els.tableview.innerHTML.includes('<optgroup label="Date anchors">') &&
+  els.tableview.innerHTML.includes(">Wave 2 start<") && els.tableview.innerHTML.includes(">Circle announcement<") &&
   !els.tableview.innerHTML.includes(">Teaser date<") && !els.tableview.innerHTML.includes(">Launch date<"),
-  "anchor dropdown groups tasks with the single Wave 2 start date at the top");
+  "anchor dropdown groups the four date anchors under 'Date anchors'");
 // Re-anchoring to an item deduces item_anchor and PRESERVES the stored external flag.
 const beforeExt = App.state.model.find((t) => t.id === "wave3_start").external_dependency;
 fireEdit("anchor_id", "wave3_start", "v016_devnet");
@@ -138,19 +157,23 @@ assert(rean.anchor_type === "item_anchor" && rean.external_dependency === before
   "re-anchor deduces item_anchor and preserves the stored external_dependency flag");
 els.reset._fire("click");
 
-// ---- Legend + pattern cues -------------------------------------------------
+// ---- Legend + streamlined swatches -----------------------------------------
 assert((els.legend.innerHTML.match(/legend-swatch/g) || []).length === 8, "legend renders all 8 categories");
 ["pat-cross", "pat-vertical", "pat-horizontal", "pat-diagonal", "pat-circle"].forEach((klass) => {
-  assert(els.legend.innerHTML.includes(klass), `legend missing ${klass}`);
+  assert(!els.legend.innerHTML.includes(klass), `legend must not use decorative pattern ${klass}`);
 });
+assert(els.legend.innerHTML.includes("border-left-color:"), "legend swatches use the soft-tint + left-accent treatment");
 const css = fs.readFileSync(path.join(__dirname, "styles.css"), "utf8");
 const app = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
-assert(css.includes(".pill .pill-text") && css.includes("background: rgba(255,255,255,0.9)") && app.includes("style=\"color:#111\""), "pill labels use high-contrast text treatment");
-assert(css.includes(".legend-item") && css.includes("font-size: 12px"), "legend labels are explicit text, not color-only");
+assert(css.includes(".pill") && css.includes("border-left") && css.includes("--card-outline"), "pills use a consistent left-accent + neutral outline card treatment");
+assert(css.includes(":focus-visible"), "focus-visible states preserved for accessibility");
+assert(!css.includes(".badge.ext") && !app.includes(">EXT<"), "no EXT badge styling/markup remains");
+assert(els.calendar.innerHTML.includes("WAVE 2") && els.calendar.innerHTML.includes("DEVNET") &&
+  els.calendar.innerHTML.includes("TESTNET") && els.calendar.innerHTML.includes("CIRCLE"), "all four anchor chips render on the calendar");
 
 // ---- Drag/drop -------------------------------------------------------------
 els["view-cal"]._fire("click");
-fireDragStart("wave2_decision"); // anchor Wave 2 date 2026-07-31; drop on 2026-08-04 (Tue) -> +2bd
+fireDragStart("wave2_decision"); // anchor wave2_start 2026-07-31; drop on 2026-08-04 (Tue) -> +2bd
 fireDrop("2026-08-04");
 assert(App.state.model.find((t) => t.id === "wave2_decision").offset_business_days === 2, "drag/drop recomputed offset to +2 business days");
 console.log("drag/drop offset recompute verified through app.js");
@@ -159,13 +182,14 @@ els.reset._fire("click");
 // ---- Click-highlight (floating popup, no layout shift) ---------------------
 els["view-cal"]._fire("click");
 const calSkelBefore = (els.calendar.innerHTML.match(/class="daynum[^"]*">\d+</g) || []).join("|");
-firePillClick("v016_testnet"); // chain: testnet -> devnet -> wave2_start -> Wave 2 date
-assert(App.state.selectedId === "v016_testnet", "click set the selected task");
+firePillClick("client_wallet_done"); // chain: client -> guardian -> testnet -> v0.16 testnet date
+assert(App.state.selectedId === "client_wallet_done", "click set the selected task");
 assert(els.calendar.innerHTML.includes("hl-self") && els.calendar.innerHTML.includes("hl-anchor"), "highlight applied to item + anchors");
+assert(els.calendar.innerHTML.includes("hl-anchor-cell"), "terminating testnet anchor cell highlighted");
 assert((els.calendar.innerHTML.match(/class="daynum[^"]*">\d+</g) || []).join("|") === calSkelBefore, "selecting a pill does not change the calendar month/week structure");
 assert(els.details._cls["details-hidden"] !== true && els.details.innerHTML.includes('id="details-drag"'), "details shown as a floating (draggable) popup");
-assert(els.details.innerHTML.includes("Anchor chain") && els.details.innerHTML.includes("0) v0.16 on devnet") && els.details.innerHTML.includes("Wave 2 start"),
-  "details popup shows the anchor chain terminating at the Wave 2 start date");
+assert(els.details.innerHTML.includes("Anchor chain") && els.details.innerHTML.includes("0) Guardian upgrade done") && els.details.innerHTML.includes("v0.16 testnet"),
+  "details popup shows the anchor chain terminating at the v0.16 testnet date anchor");
 assert(els.details.innerHTML.includes("External dependency: yes"), "details popup shows the stored external-dependency flag");
 console.log("click-highlight via floating popup (no layout shift) verified through app.js");
 els.reset._fire("click");
@@ -176,10 +200,10 @@ function fireLegend(cat) {
     closest: (sel) => (sel === "[data-cat]" ? { getAttribute: (k) => (k === "data-cat" ? cat : null) } : null),
   } });
 }
-const publicCount = M.SHIPPED_TASKS.filter((t) => t.category === "public").length; // 5
-const productCount = M.SHIPPED_TASKS.filter((t) => t.category === "product").length; // 8
+const publicCount = M.SHIPPED_TASKS.filter((t) => t.category === "public").length; // 3
+const productCount = M.SHIPPED_TASKS.filter((t) => t.category === "product").length; // 10
 setTableView();
-assert(tableRows() === TASK_COUNT, "filter: all 31 rows visible before any legend selection");
+assert(tableRows() === TASK_COUNT, "filter: all 33 rows visible before any legend selection");
 els["view-cal"]._fire("click");
 const calSkelUnfiltered = (els.calendar.innerHTML.match(/class="daynum[^"]*">\d+</g) || []).join("|");
 setTableView();
@@ -198,13 +222,15 @@ els.legend._fire("dblclick", { target: {} });
 assert(tableRows() === TASK_COUNT, "filter: double-click resets to all categories visible");
 console.log("legend filter: single/add/remove/double-click reset + stable week trimming verified through app.js");
 
-// ---- Store submissions (Waves 2-5) are all present and resolve -------------
+// ---- Store submissions + decisions (Waves 2-5) present and resolve ---------
 setTableView();
 ["wave2_stores_submit", "wave2_stores_live", "wave3_stores_submit", "wave3_stores_live",
- "wave4_stores_submit", "wave4_stores_live", "wave5_stores_submit", "wave5_stores_live"].forEach((id) => {
-  assert(els.tableview.innerHTML.includes(`data-row-id="${id}"`), `store submission row present: ${id}`);
+ "wave4_stores_submit", "wave4_stores_live", "wave5_stores_submit", "wave5_stores_live",
+ "wave3_decision", "wave4_decision", "wave5_decision"].forEach((id) => {
+  assert(els.tableview.innerHTML.includes(`data-row-id="${id}"`), `row present: ${id}`);
 });
-console.log("store submissions for Waves 2-5 present in the table");
+assert(!els.tableview.innerHTML.includes('data-row-id="wave6_start"'), "wave6_start removed from the model");
+console.log("store submissions + Wave 3/4/5 decisions present in the table; wave6 gone");
 
 // ---- Add / remove tasks through the UI -------------------------------------
 function fireRemove(id) {
@@ -214,36 +240,42 @@ function fireRemove(id) {
 }
 els["restore-shipped"]._fire("click");
 setTableView();
-assert(tableRows() === TASK_COUNT, "add/remove: starts at 31 rows");
+assert(tableRows() === TASK_COUNT, "add/remove: starts at 33 rows");
 els["add-task"]._fire("click");
-assert(tableRows() === TASK_COUNT + 1 && App.state.model.length === TASK_COUNT + 1, "add: Add task appends a row (31 -> 32)");
+assert(tableRows() === TASK_COUNT + 1 && App.state.model.length === TASK_COUNT + 1, "add: Add task appends a row (33 -> 34)");
 const addedId = App.state.model[App.state.model.length - 1].id;
 assert(JSON.parse(App.exportJSON()).tasks.some((t) => t.id === addedId), "add: added task is in the export");
 fireRemove(addedId);
-assert(tableRows() === TASK_COUNT && !App.state.model.some((t) => t.id === addedId), "remove: added task removed (32 -> 31)");
+assert(tableRows() === TASK_COUNT && !App.state.model.some((t) => t.id === addedId), "remove: added task removed (34 -> 33)");
 fireRemove("wave2_start");
 assert(tableRows() === TASK_COUNT - 1 && App.state.model.find((t) => t.id === "wave2_feedback_changes").anchor_id === "wave2_date",
   "remove: removing a task with dependents re-anchors them to the removed task's anchor (Wave 2 date)");
-assert(M.recalc({ wave2: App.state.wave2, tasks: App.state.model }).errors.length === 0, "remove: no dangling anchors after removal");
+assert(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).errors.length === 0, "remove: no dangling anchors after removal");
 els["restore-shipped"]._fire("click");
 setTableView();
-assert(tableRows() === TASK_COUNT && !!App.state.model.find((t) => t.id === "wave2_start"), "restore shipped brings back the full 31-task model after add/remove");
+assert(tableRows() === TASK_COUNT && !!App.state.model.find((t) => t.id === "wave2_start"), "restore shipped brings back the full 33-task model after add/remove");
 console.log("add/remove tasks (unique id, dependent re-anchor, export/restore) verified through app.js");
 
 // ---- Stale localStorage cannot mask the new defaults -----------------------
+// Prior-release single-anchor v3 payload + pre-wave v2 payload are both ignored.
+storageData["bread-calendar-model-v3"] = JSON.stringify({ schema: 3, wave2: "2026-07-31", tasks: [{ id: "wave6_start" }] });
 storageData["bread-calendar-model-v2"] = JSON.stringify({ teaser: "2026-08-06", launch: "2026-08-13", tasks: [{ id: "public_teaser" }] });
 const staleWin = {};
 const staleSandbox = { window: staleWin, document: { getElementById: (id) => els[id], body, createElement: () => ({ click() {}, style: {} }) }, console, localStorage };
 staleSandbox.global = staleSandbox;
 vm.createContext(staleSandbox);
 ["model.js", "app.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, f), "utf8"), staleSandbox, { filename: f }));
-assert(staleWin.BreadApp.state.model.length === TASK_COUNT, "stale pre-wave (v2) state is ignored -> shipped 31-task model");
-assert(!Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v2"), "legacy v2 storage key is removed on load");
+assert(staleWin.BreadApp.state.model.length === TASK_COUNT, "stale prior-release state is ignored -> shipped 33-task model");
+assert(!Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3") && !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v2"),
+  "legacy storage keys (single-anchor v3 + pre-wave v2) are removed on load");
 console.log("stale-localStorage handling verified through app.js");
 
 // ---- Export ----------------------------------------------------------------
 const exported = JSON.parse(window.BreadApp.exportJSON());
-assert(exported.tasks.length === TASK_COUNT && exported.wave2_date === "2026-07-31" && exported.version === 3, "export JSON carries the full 31-task version-3 model");
+assert(exported.tasks.length === TASK_COUNT && exported.version === 3 &&
+  exported.wave2_date === "2026-07-31" && exported.v016_devnet_date === "2026-07-17" &&
+  exported.v016_testnet_date === "2026-08-05" && exported.circle_announcement_date === "2026-08-12",
+  "export JSON carries the full 33-task version-3 model with four anchors");
 console.log("export JSON verified through app.js");
 
 console.log(`PASS: ${pass} DOM/live-render QA assertions passed.`);

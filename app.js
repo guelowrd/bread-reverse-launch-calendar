@@ -2,24 +2,29 @@
 (function () {
   "use strict";
   var M = window.BreadModel;
-  // Versioned storage key. Bumping the suffix (v2 -> v3) guarantees that stale
-  // pre-wave state cannot mask the new shipped defaults: the old key is a
-  // different bucket and is proactively removed on load.
-  var STORAGE_KEY = "bread-calendar-model-v3";
+  // Versioned storage key + explicit model revision. The v3 SCHEMA is unchanged,
+  // but the shipped structure/defaults changed (four date anchors, 33 tasks), so
+  // a new storage KEY plus a REVISION stamp guarantees that stale schema-3 state
+  // from the previous release cannot mask or shadow the new shipped defaults: the
+  // old key is a different bucket (proactively removed on load) and a payload with
+  // the wrong revision under the new key is discarded.
+  var STORAGE_KEY = "bread-calendar-model-v3r2";
   var STORAGE_SCHEMA = 3;
-  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v2", "bread-calendar-model"];
+  var STORAGE_REVISION = 2;
+  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v3", "bread-calendar-model-v2", "bread-calendar-model"];
 
   // ---- Persistence (localStorage) -------------------------------------------
   // The app is a static local page: source files cannot be written from the
   // browser. So user edits (labels, anchors, offsets, categories, external-dep
-  // flags, AND user-chosen defaults) live in localStorage. Clearing storage or
-  // "Restore shipped defaults" returns to the model shipped in model.js.
+  // flags, the four date anchors, AND user-chosen defaults) live in localStorage.
+  // Clearing storage or "Restore shipped defaults" returns to the model shipped in
+  // model.js.
   function hasStorage() {
     try { return typeof localStorage !== "undefined" && localStorage !== null; }
     catch (e) { return false; }
   }
-  // Drop any pre-v3 persisted state so an old teaser/launch model can never
-  // resurface or shadow the wave-based defaults.
+  // Drop any prior-release persisted state (old single-anchor v3 key and the
+  // pre-wave v2/teaser keys) so it can never resurface or shadow the new defaults.
   function dropLegacyStorage() {
     if (!hasStorage()) return;
     LEGACY_STORAGE_KEYS.forEach(function (k) {
@@ -32,11 +37,12 @@
       var raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       var obj = JSON.parse(raw);
-      // Only accept current-schema state. Anything else (missing schema, an old
-      // teaser/launch blob copied under this key, a future version) is discarded
-      // so it cannot mask the shipped defaults.
-      if (!obj || obj.schema !== STORAGE_SCHEMA || !Array.isArray(obj.tasks)) return null;
-      if (typeof obj.wave2 !== "string" || !obj.wave2) return null;
+      // Only accept current schema AND revision. Anything else (missing fields, a
+      // previous-release single-anchor blob copied under this key, a future
+      // version) is discarded so it cannot mask the shipped defaults.
+      if (!obj || obj.schema !== STORAGE_SCHEMA || obj.revision !== STORAGE_REVISION || !Array.isArray(obj.tasks)) return null;
+      if (!obj.anchors || typeof obj.anchors !== "object") return null;
+      if (typeof obj.anchors.wave2_date !== "string" || !obj.anchors.wave2_date) return null;
       return obj;
     } catch (e) { return null; }
   }
@@ -45,7 +51,8 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         schema: STORAGE_SCHEMA,
-        wave2: state.wave2,
+        revision: STORAGE_REVISION,
+        anchors: state.anchors,
         tasks: state.model
       }));
     } catch (e) { /* ignore quota / disabled storage */ }
@@ -54,7 +61,7 @@
   dropLegacyStorage();
   var persisted = loadPersisted();
   var state = {
-    wave2: (persisted && persisted.wave2) || M.DEFAULT_WAVE2,
+    anchors: M.normalizeAnchors(persisted ? persisted.anchors : null),
     model: persisted ? M.cloneTasks(persisted.tasks) : M.defaultModel(),
     view: "calendar",     // "calendar" | "table"
     activeCats: {},        // { categoryKey: true } (legend filter; empty = show all)
@@ -70,7 +77,6 @@
 
   // ---- DOM refs -------------------------------------------------------------
   var el = {
-    wave2: document.getElementById("wave2"),
     reset: document.getElementById("reset"),
     addTask: document.getElementById("add-task"),
     makeDefaults: document.getElementById("make-defaults"),
@@ -84,6 +90,10 @@
     calendar: document.getElementById("calendar"),
     tableview: document.getElementById("tableview")
   };
+  // One date input per editable date anchor, keyed by anchor id (the input's id
+  // in index.html is exactly the anchor id).
+  el.anchorInputs = {};
+  M.DATE_ANCHOR_IDS.forEach(function (id) { el.anchorInputs[id] = document.getElementById(id); });
 
   var DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
@@ -97,17 +107,6 @@
     return y + "-" + m + "-" + day;
   }
 
-  function patternClass(cat) {
-    switch (M.CATEGORIES[cat].pattern) {
-      case "cross": return "pat-cross";
-      case "vertical": return "pat-vertical";
-      case "horizontal": return "pat-horizontal";
-      case "diagonal": return "pat-diagonal";
-      case "circle": return "pat-circle";
-      default: return "";
-    }
-  }
-
   function escapeHTML(s) {
     return String(s).replace(/[&<>"]/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
@@ -115,41 +114,38 @@
   }
 
   // ---- Highlight computation (click an item -> highlight it + its anchors) ---
-  // Returns { ids: {id:true}, dateAnchor: "wave2"|null, chain: [...] }.
+  // Returns { ids: {id:true}, dateAnchor: <anchor id>|null, chain: [...] }.
   function computeHighlight() {
     var out = { ids: {}, dateAnchor: null, chain: [] };
     if (!state.selectedId) return out;
     var chain = M.anchorChain(state.model, state.selectedId);
     out.chain = chain;
     chain.forEach(function (id) { out.ids[id] = true; });
-    if (chain.length) {
-      var last = M.findTask(state.model, chain[chain.length - 1]);
-      if (last && last.anchor_type === "date_anchor") out.dateAnchor = "wave2";
-    }
+    out.dateAnchor = M.terminalDateAnchor(state.model, state.selectedId);
     return out;
   }
 
   // ---- Task pill (calendar cell) --------------------------------------------
+  //
+  // Category is conveyed by a soft tint fill plus a consistent 3px LEFT accent in
+  // the category color (no per-category full stroke, no decorative patterns). A
+  // quiet neutral outline/shadow is applied uniformly in CSS. External
+  // dependencies carry NO badge and NO special border here -- the flag stays in
+  // the model/export and in the details popup only.
   function pillHTML(t, hl) {
     var cat = M.CATEGORIES[t.category];
-    var pat = patternClass(t.category);
     var badges = "";
-    if (t.external_dependency) badges += '<span class="badge ext" title="External dependency (waiting on an outside party: v0.16, app stores, Circle, website go-live)">EXT</span>';
     if (t.weekend) badges += '<span class="badge weekend" title="Lands on a weekend">WKND</span>';
     if (t.moved) badges += '<span class="badge moved" title="Moved from default ' + (t.default_date || "?") + '">moved</span>';
-    var cls = "pill " + pat;
-    if (t.external_dependency) cls += " is-external";
+    var cls = "pill";
     if (hl && hl.ids[t.id]) cls += (t.id === state.selectedId ? " hl-self" : " hl-anchor");
-    // Category tint/fill + border color so each pill visually matches its legend
-    // entry. `color` also drives `currentColor` for the pattern overlay. The label
-    // sits on its own translucent white chip (.pill-text) so text stays readable.
-    var style = "color:" + cat.color + ";background-color:" + cat.tint +
-      ";border-color:" + cat.color;
+    var style = "background-color:" + cat.tint + ";border-left-color:" + cat.color;
     return (
       '<div class="' + cls + '" draggable="true" style="' + style + '"' +
         ' data-task-id="' + t.id + '" data-date="' + t.date + '"' +
+        ' data-category="' + t.category + '"' +
         ' title="' + escapeHTML(t.label) + ' (' + t.date + ')">' +
-        '<span class="pill-text" style="color:#111">' + escapeHTML(t.label) + "</span>" +
+        '<span class="pill-text">' + escapeHTML(t.label) + "</span>" +
         (badges ? '<div class="badges">' + badges + "</div>" : "") +
       "</div>"
     );
@@ -164,10 +160,21 @@
     return map;
   }
 
-  // Inclusive month span covering all resolved task dates + the Wave 2 anchor.
+  // Map anchor date -> [anchor meta] so a day cell can render its anchor chip(s).
+  function anchorsByDate(anchors) {
+    var map = {};
+    M.DATE_ANCHORS.forEach(function (a) {
+      var iso = anchors[a.id];
+      if (!iso) return;
+      (map[iso] = map[iso] || []).push(a);
+    });
+    return map;
+  }
+
+  // Inclusive month span covering all resolved task dates + every date anchor.
   function monthSpan(result) {
     var all = result.tasks.filter(function (t) { return t.date; }).map(function (t) { return t.date; });
-    all = all.concat([result.wave2]);
+    M.DATE_ANCHOR_IDS.forEach(function (id) { all.push(result.anchors[id]); });
     var min = all.reduce(function (a, b) { return a < b ? a : b; });
     var max = all.reduce(function (a, b) { return a > b ? a : b; });
     var d0 = M.parseISO(min), d1 = M.parseISO(max);
@@ -188,6 +195,7 @@
   function renderCalendar(fullResult, visResult, hl) {
     var contentByDate = indexByDate(fullResult.tasks); // stable week structure
     var pillByDate = indexByDate(visResult.tasks);     // filtered pills
+    var anchorByDate = anchorsByDate(fullResult.anchors);
     var today = localTodayISO();
     var months = monthSpan(fullResult);
     var html = "";
@@ -204,8 +212,8 @@
       var cursor = new Date(Date.UTC(mo.year, mo.month, 1 - startOffset));
 
       // Build six week rows, tracking whether each carries in-month content
-      // (a task pill or the Wave 2 anchor). Leading/trailing empty rows are
-      // trimmed dynamically so the visible span follows the current dates.
+      // (a task pill or any date anchor). Leading/trailing empty rows are trimmed
+      // dynamically so the visible span follows the current dates.
       var weekRows = [];
       for (var row = 0; row < 6; row++) {
         var rowHTML = "<tr>";
@@ -214,21 +222,28 @@
           var iso = M.toISO(cursor);
           var inMonth = cursor.getUTCMonth() === mo.month;
           var we = (col === 0 || col === 6);
-          var isWave2 = iso === fullResult.wave2;
+          var cellAnchors = anchorByDate[iso] || null;
           // Week content is decided from the FULL set so filters never trim weeks.
           var hasContent = inMonth && !!contentByDate[iso];
           // Pills are drawn from the VISIBLE (filtered) set.
           var hasTasks = inMonth && !!pillByDate[iso];
-          if (inMonth && (isWave2 || hasContent)) rowHasContent = true;
+          if (inMonth && (cellAnchors || hasContent)) rowHasContent = true;
           var cls = [];
           if (we) cls.push("we");
           if (!inMonth) cls.push("other");
           if (inMonth && iso === today) cls.push("today");
-          if (inMonth && isWave2 && hl.dateAnchor === "wave2") cls.push("hl-anchor-cell");
+          if (inMonth && cellAnchors) cls.push("anchor-day");
+          var highlighted = inMonth && cellAnchors && hl.dateAnchor &&
+            cellAnchors.some(function (a) { return a.id === hl.dateAnchor; });
+          if (highlighted) cls.push("hl-anchor-cell");
           rowHTML += '<td class="' + cls.join(" ") + '" data-date="' + iso + '">';
-          var dayCls = "daynum" + (isWave2 && inMonth ? " anchor" : "") + (inMonth && iso === today ? " today" : "");
+          var dayCls = "daynum" + (cellAnchors && inMonth ? " anchor" : "") + (inMonth && iso === today ? " today" : "");
           rowHTML += '<span class="' + dayCls + '"' + (inMonth && iso === today ? ' title="Today"' : "") + '>' + cursor.getUTCDate() + "</span>";
-          if (inMonth && isWave2) rowHTML += '<span class="anchor-tag">WAVE 2</span>';
+          if (inMonth && cellAnchors) {
+            cellAnchors.forEach(function (a) {
+              rowHTML += '<span class="anchor-tag" title="' + escapeHTML(a.label) + '">' + escapeHTML(a.chip) + "</span>";
+            });
+          }
           if (hasTasks) {
             pillByDate[iso].forEach(function (t) { rowHTML += pillHTML(t, hl); });
           }
@@ -251,7 +266,10 @@
 
   // ---- Table view (fully editable rows) -------------------------------------
   function anchorLabel(result, t) {
-    if (t.anchor_type === "date_anchor") return "Wave 2 start";
+    if (t.anchor_type === "date_anchor") {
+      var a = M.DATE_ANCHOR_BY_ID[t.anchor_id];
+      return a ? a.label : ("? " + t.anchor_id);
+    }
     var p = M.findTask(result.tasks, t.anchor_id);
     return p ? p.label : ("? " + t.anchor_id);
   }
@@ -263,16 +281,18 @@
     }).join("");
   }
 
-  // Anchor dropdown for a task. The Wave 2 start date always sits at the top; every
-  // other task follows, grouped by category (optgroup labels "{num}) name") and
-  // sorted by resolved date within each group. The current row is excluded. The
-  // user never picks an "anchor type" first: choosing the Wave 2 date makes it a
-  // date anchor, choosing a task makes it an item anchor (derived in the model).
+  // Anchor dropdown for a task. The four editable date anchors sit at the top
+  // (grouped under "Date anchors"); every other task follows, grouped by category
+  // (optgroup labels "{num}) name") and sorted by resolved date within each group.
+  // The current row is excluded. The user never picks an "anchor type" first:
+  // choosing a date anchor makes it a date anchor, choosing a task makes it an item
+  // anchor (derived in the model).
   function anchorIdOptions(t, resolvedTasks) {
-    var html = "";
-    html += '<optgroup label="Date">' +
-      '<option value="wave2_date"' + (t.anchor_id === "wave2_date" ? " selected" : "") + ">Wave 2 start</option>" +
-      "</optgroup>";
+    var html = '<optgroup label="Date anchors">';
+    M.DATE_ANCHORS.forEach(function (a) {
+      html += '<option value="' + a.id + '"' + (t.anchor_id === a.id ? " selected" : "") + ">" + escapeHTML(a.label) + "</option>";
+    });
+    html += "</optgroup>";
     M.CATEGORY_ORDER.forEach(function (k) {
       var c = M.CATEGORIES[k];
       var members = resolvedTasks.filter(function (o) { return o.category === k && o.id !== t.id; });
@@ -305,14 +325,13 @@
       var trCls = [];
       if (t.weekend) trCls.push("is-weekend");
       if (t.moved) trCls.push("is-moved");
-      if (t.external_dependency) trCls.push("is-external");
+      if (t.external_dependency) trCls.push("is-external"); // semantic hook only (no heavy styling)
       if (t.error) trCls.push("is-error");
       if (hl.ids[t.id]) trCls.push("is-highlight");
       var wkndMark = t.weekend ? ' <span class="wknd-mark" title="Lands on a weekend">WKND</span>' : "";
-      var extMark = t.external_dependency ? ' <span class="ext-mark" title="External dependency">EXT</span>' : "";
       var dateCell = t.error
         ? '<span class="err-mark" title="' + escapeHTML(t.error) + '">unresolved</span>'
-        : (escapeHTML(t.date) + wkndMark + extMark);
+        : (escapeHTML(t.date) + wkndMark);
       html += '<tr class="' + trCls.join(" ") + '" data-row-id="' + t.id + '">' +
         '<td class="date">' + dateCell + "</td>" +
         '<td><select class="edit" data-edit="category" data-id="' + t.id + '">' + categoryOptions(t.category) + "</select></td>" +
@@ -357,7 +376,9 @@
       return ct ? escapeHTML(ct.label) : id;
     });
     // Append the terminating date anchor to the chain for legibility.
-    if (hl.dateAnchor === "wave2") chainLabels.push("Wave 2 start");
+    if (hl.dateAnchor && M.DATE_ANCHOR_BY_ID[hl.dateAnchor]) {
+      chainLabels.push(escapeHTML(M.DATE_ANCHOR_BY_ID[hl.dateAnchor].label));
+    }
     var chainStr = chainLabels.join(" &larr; ");
     var anchorStr = escapeHTML(anchorLabel(result, t));
     var dateStr = t.error ? ("unresolved: " + escapeHTML(t.error)) : escapeHTML(t.date) + (t.weekend ? " (weekend)" : "");
@@ -378,19 +399,21 @@
   }
 
   // ---- Legend ---------------------------------------------------------------
+  //
+  // Swatches use the same soft tint + left accent as the calendar pills (no
+  // decorative patterns). The numeric "{n})" prefix is the non-color cue.
   function renderLegend() {
     var selecting = anyCatSelected();
     var html = "";
     M.CATEGORY_ORDER.forEach(function (k) {
       var c = M.CATEGORIES[k];
-      var pat = patternClass(k);
       var selected = !!state.activeCats[k];
       var active = !selecting || selected;
       var cls = "legend-item" + (active ? " active" : " inactive") + (selected ? " selected" : "");
       html += '<span class="' + cls + '" data-cat="' + k + '" role="button" tabindex="0"' +
         ' aria-pressed="' + (selected ? "true" : "false") + '"' +
         ' title="Click to filter to this category; double-click the legend to show all">' +
-        '<span class="legend-swatch ' + pat + '" style="color:' + c.color + ";background:" + c.tint + ";border-color:" + c.color + '"></span>' +
+        '<span class="legend-swatch" style="background:' + c.tint + ";border-left-color:" + c.color + '"></span>' +
         c.num + ") " + c.name + "</span>";
     });
     el.legend.innerHTML = html;
@@ -399,7 +422,7 @@
   // ---- Main render ----------------------------------------------------------
   var lastResult = null;
   function render() {
-    var result = M.recalc({ wave2: state.wave2, tasks: state.model });
+    var result = M.recalc({ anchors: state.anchors, tasks: state.model });
     lastResult = result;
     var hl = computeHighlight();
 
@@ -408,7 +431,7 @@
     renderDetails(result, hl);
 
     var filtered = {
-      wave2: result.wave2,
+      anchors: result.anchors,
       tasks: visibleTasks(result.tasks),
       errors: result.errors
     };
@@ -460,7 +483,7 @@
 
   // ---- Export ---------------------------------------------------------------
   function buildExport() {
-    return M.exportModel(state.wave2, state.model);
+    return M.exportModel(state.anchors, state.model);
   }
   function exportJSON() {
     var payload = buildExport();
@@ -481,17 +504,31 @@
     return text;
   }
 
+  // ---- Anchor date inputs ---------------------------------------------------
+  function syncAnchorInputs() {
+    M.DATE_ANCHOR_IDS.forEach(function (id) {
+      if (el.anchorInputs[id]) el.anchorInputs[id].value = state.anchors[id];
+    });
+  }
+
   // ---- Event wiring ---------------------------------------------------------
-  if (el.wave2) el.wave2.addEventListener("change", function () { state.wave2 = el.wave2.value; render(); });
+  M.DATE_ANCHOR_IDS.forEach(function (id) {
+    var input = el.anchorInputs[id];
+    if (!input) return;
+    input.addEventListener("change", function () {
+      state.anchors[id] = input.value;
+      render();
+    });
+  });
 
   if (el.reset) el.reset.addEventListener("click", function () {
     // Reset to the CURRENTLY CHOSEN defaults (each task's default_* fields) and
-    // the default Wave 2 anchor; also clears the legend filter and highlight.
+    // the default date anchors; also clears the legend filter and highlight.
     state.model = M.resetToDefaults(state.model);
-    state.wave2 = M.DEFAULT_WAVE2;
+    state.anchors = M.defaultAnchors();
     state.activeCats = {};
     state.selectedId = null;
-    if (el.wave2) el.wave2.value = state.wave2;
+    syncAnchorInputs();
     render();
   });
 
@@ -508,10 +545,10 @@
   if (el.restoreShipped) el.restoreShipped.addEventListener("click", function () {
     // Discard user edits AND user-chosen defaults; return to model.js shipped.
     state.model = M.defaultModel();
-    state.wave2 = M.DEFAULT_WAVE2;
+    state.anchors = M.defaultAnchors();
     state.activeCats = {};
     state.selectedId = null;
-    if (el.wave2) el.wave2.value = state.wave2;
+    syncAnchorInputs();
     render();
   });
 
@@ -670,6 +707,6 @@
   };
 
   // ---- Init ----
-  if (el.wave2) el.wave2.value = state.wave2;
+  syncAnchorInputs();
   setView("calendar");
 })();
