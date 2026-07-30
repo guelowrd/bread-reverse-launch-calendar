@@ -90,10 +90,12 @@
     calendar: document.getElementById("calendar"),
     tableview: document.getElementById("tableview")
   };
-  // One date input per editable date anchor, keyed by anchor id (the input's id
-  // in index.html is exactly the anchor id).
+  // One date input per CONTROL date anchor, keyed by anchor id (the input's id in
+  // index.html is exactly the anchor id). Anchors marked non-control (e.g. the
+  // fixed past v0.16 devnet date) have no input here; they stay in the model,
+  // export, and task anchor dropdown, and their task is still movable.
   el.anchorInputs = {};
-  M.DATE_ANCHOR_IDS.forEach(function (id) { el.anchorInputs[id] = document.getElementById(id); });
+  M.CONTROL_ANCHOR_IDS.forEach(function (id) { el.anchorInputs[id] = document.getElementById(id); });
 
   var DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
@@ -506,13 +508,13 @@
 
   // ---- Anchor date inputs ---------------------------------------------------
   function syncAnchorInputs() {
-    M.DATE_ANCHOR_IDS.forEach(function (id) {
+    M.CONTROL_ANCHOR_IDS.forEach(function (id) {
       if (el.anchorInputs[id]) el.anchorInputs[id].value = state.anchors[id];
     });
   }
 
   // ---- Event wiring ---------------------------------------------------------
-  M.DATE_ANCHOR_IDS.forEach(function (id) {
+  M.CONTROL_ANCHOR_IDS.forEach(function (id) {
     var input = el.anchorInputs[id];
     if (!input) return;
     input.addEventListener("change", function () {

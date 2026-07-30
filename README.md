@@ -24,16 +24,20 @@ This model is a dependency graph:
 
 ## The four date anchors
 
-v3 has **four** independent, editable date anchors, each rooting its **own**
-subgraph. Moving one anchor recomputes only its dependent tasks; the other three
-chains are untouched.
+v3 has **four** independent date anchors, each rooting its **own** subgraph.
+Moving one anchor recomputes only its dependent tasks; the other three chains are
+untouched. **Three** of them are exposed as editable inputs in the "Date anchors"
+control strip; the **v0.16 devnet** date is a fixed **past** baseline that stays
+in the model/export (so the authoritative JSON round-trips) but has **no** editable
+control (its `control` flag is `false`). The devnet task itself is still movable
+via its offset, drag/drop, or re-anchoring.
 
-| anchor id | label | default | roots |
-|---|---|---|---|
-| `wave2_date` | Wave 2 start | **2026-07-31** | Wave 2 company-wide testing → changes → stores, and Waves 3/4/5 (each `+6bd` from the prior wave start), plus their decisions, comms, and video prep |
-| `v016_devnet_date` | v0.16 devnet | **2026-07-17** | `0) v0.16 on devnet` (standalone) |
-| `v016_testnet_date` | v0.16 testnet | **2026-08-05** | `0) v0.16 on testnet` → Guardian upgrade (`-2bd`) → Client/wallet/Epoch (`+4bd`) |
-| `circle_announcement_date` | Circle announcement | **2026-08-12** | `7) PUBLIC: Circle announcement` → website go-live → waitlist QA (`website_out -1bd`) |
+| anchor id | label | default | control | roots |
+|---|---|---|:---:|---|
+| `wave2_date` | Wave 2 start | **2026-07-31** | ✓ | Wave 2 company-wide testing → changes → stores, and Waves 3/4/5 (each `+6bd` from the prior wave start), plus their decisions, comms, and video prep |
+| `v016_devnet_date` | v0.16 devnet | **2026-07-17** |  | `0) v0.16 on devnet` (standalone; fixed past baseline, no control) |
+| `v016_testnet_date` | v0.16 testnet | **2026-08-05** | ✓ | `0) v0.16 on testnet` → Guardian upgrade (`-2bd`) → Client/wallet/Epoch (`+4bd`) |
+| `circle_announcement_date` | Circle announcement | **2026-08-12** | ✓ | `7) PUBLIC: Circle announcement` → website go-live → waitlist QA (`website_out -1bd`) |
 
 Earlier revisions used a **single** `wave2_date` anchor that moved the entire
 graph. That is no longer true: the devnet/testnet releases and the Circle
@@ -55,9 +59,10 @@ No build step, no dependencies.
 
 ## What it does
 
-- **Four date-anchor inputs**, grouped and labelled under a "Date anchors" block.
-  Editing one recalculates its dependent subgraph instantly; the other chains
-  stay put.
+- **Three editable date-anchor inputs** (Wave 2 start, v0.16 testnet, Circle
+  announcement), grouped and labelled under a "Date anchors" block. Editing one
+  recalculates its dependent subgraph instantly; the other chains stay put. The
+  v0.16 devnet date is a fixed past baseline and is **not** shown as a control.
 - **Calendar view** (month grids covering whatever span the recalculated tasks
   occupy) and **Table view**. Today's date is highlighted in blue. Leading/
   trailing empty week rows are trimmed dynamically. **Week trimming is computed
@@ -263,9 +268,9 @@ files. So editable state lives in the browser:
 
 - **`localStorage` holds your working model** under the key
   `bread-calendar-model-v3r2` (a payload
-  `{ schema: 3, revision: 2, anchors, tasks }`). Every edit, add/remove, the four
-  chosen anchor dates, and any user-chosen defaults are saved and restored on the
-  next load. **Stale state cannot mask the new defaults:** the v3 schema is
+  `{ schema: 3, revision: 2, anchors, tasks }`). Every edit, add/remove, the
+  editable anchor dates (all four are persisted; only three are editable), and any
+  user-chosen defaults are saved and restored on the next load. **Stale state cannot mask the new defaults:** the v3 schema is
   unchanged but the structure/defaults changed, so a new **storage key** plus an
   explicit **model revision** is used. Any prior-release state under the old
   `bread-calendar-model-v3` / `-v2` / `bread-calendar-model` keys is proactively
@@ -288,7 +293,7 @@ files. So editable state lives in the browser:
 
 | file | purpose |
 |---|---|
-| `index.html` | page shell + controls (four grouped date-anchor inputs) |
+| `index.html` | page shell + controls (three grouped date-anchor inputs; devnet date is a fixed baseline with no control) |
 | `model.js` | task graph model (33 tasks, four date anchors) + business-day math + derived `anchor_type` + stored `external_dependency` + add/remove helpers + resolution/cycle detection; shared by browser and tests |
 | `app.js` | browser UI: calendar/table rendering, editing, add/remove, drag/drop, floating highlight popup, versioned+revisioned localStorage, export, legend filter |
 | `baseline-model.json` | copy of the authoritative v3 JSON; `verify.js` compares shipped defaults against it |

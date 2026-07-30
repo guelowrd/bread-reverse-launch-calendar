@@ -31,7 +31,9 @@ function makeEl(id) {
 }
 
 const els = {};
-["wave2_date", "v016_devnet_date", "v016_testnet_date", "circle_announcement_date",
+// v016_devnet_date has no control input (fixed past baseline), so it is omitted
+// here to mirror the real DOM (getElementById returns undefined).
+["wave2_date", "v016_testnet_date", "circle_announcement_date",
  "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach((id) => { const e = makeEl(id); e.classList._owner = e; els[id] = e; });
@@ -112,7 +114,10 @@ const FIXED = {
 const owned = {};
 Object.keys(FIXED).forEach((aid) => FIXED[aid].forEach((id) => { owned[id] = aid; }));
 const SUBGRAPHS = Object.assign({ wave2_date: M.SHIPPED_TASKS.map((t) => t.id).filter((id) => !owned[id]) }, FIXED);
-M.DATE_ANCHOR_IDS.forEach((movedAnchor) => {
+// Only the CONTROL anchors have a UI date input to drive; the devnet anchor is a
+// fixed past baseline with no control (its model-level subgraph independence is
+// covered in verify.js / qa-live-recalc-check.js).
+M.CONTROL_ANCHOR_IDS.forEach((movedAnchor) => {
   const before = M.recalc({ anchors: M.defaultAnchors(), tasks: M.defaultModel() });
   els["restore-shipped"]._fire("click");
   setAnchor(movedAnchor, M.addBusinessDays(M.defaultAnchors()[movedAnchor], 5));
@@ -126,7 +131,23 @@ M.DATE_ANCHOR_IDS.forEach((movedAnchor) => {
   assert(ok, `moving ${movedAnchor} +5bd through the UI moved only its subgraph`);
 });
 els["restore-shipped"]._fire("click");
-console.log("per-anchor subgraph independence verified through app.js (each date anchor moves only its own chain)");
+console.log("per-anchor subgraph independence verified through app.js (each control date anchor moves only its own chain)");
+
+// ---- Devnet date control hidden, task still present + movable ---------------
+assert(M.CONTROL_ANCHOR_IDS.length === 3 && M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1,
+  "v016_devnet_date is not a control anchor (no UI date input)");
+assert(!els["v016_devnet_date"], "the devnet date input is absent from the DOM");
+setTableView();
+assert(els.tableview.innerHTML.includes('data-row-id="v016_devnet"'), "devnet task row is still present in the table");
+assert(App.state.model.find((t) => t.id === "v016_devnet").anchor_id === "v016_devnet_date", "devnet task keeps its v016_devnet_date anchor");
+const devBefore = M.findTask(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).tasks, "v016_devnet").date;
+fireEdit("offset", "v016_devnet", "-3"); // 3bd earlier than its fixed baseline
+const devAfter = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
+assert(M.findTask(devAfter.tasks, "v016_devnet").date === M.addBusinessDays(devBefore, -3),
+  "devnet task is still movable via its offset (no date control needed)");
+assert(JSON.parse(App.exportJSON()).v016_devnet_date === "2026-07-17", "export still round-trips the fixed devnet baseline date");
+els["restore-shipped"]._fire("click");
+console.log("devnet date control hidden; devnet task present, movable, and its anchor date still exported");
 
 // ---- Item-anchor downstream recompute through the UI -----------------------
 setTableView();

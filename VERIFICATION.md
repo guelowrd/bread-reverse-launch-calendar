@@ -2,12 +2,16 @@
 
 Verification date: 2026-07-30 (four-anchor v3 update + UI streamline) UTC
 
-Scope: the wave-based **v3** artifact in this directory, updated to **four
-editable date anchors** and **33 tasks**, plus a restrained dashboard UI cleanup.
-The four anchors are **`wave2_date` (Wave 2 start, 2026-07-31)**,
+Scope: the wave-based **v3** artifact in this directory, updated to **four date
+anchors** and **33 tasks**, plus a restrained dashboard UI cleanup. The four
+anchors are **`wave2_date` (Wave 2 start, 2026-07-31)**,
 **`v016_devnet_date` (2026-07-17)**, **`v016_testnet_date` (2026-08-05)**, and
 **`circle_announcement_date` (2026-08-12)**. Each anchor roots its **own**
-subgraph; moving one recomputes only its dependents. The model remains an anchor
+subgraph; moving one recomputes only its dependents. **Three** anchors are exposed
+as editable inputs (Wave 2 start, v0.16 testnet, Circle announcement); the **v0.16
+devnet** date is a fixed **past** baseline that stays in the model/export and as
+the devnet task's anchor but has **no** editable control (the devnet task is still
+movable via its offset / drag / re-anchor). The model remains an anchor
 **graph** (stable ids, date + item anchors, forward references, downstream
 recomputation, cycle/invalid detection) with drag/drop, click-to-highlight,
 editable rows, add/remove, user-chosen defaults with versioned+revisioned
@@ -204,10 +208,10 @@ node --check model.js app.js verify.js verify-dom.js qa-live-recalc-check.js qa-
 
 Observed command results:
 
-- `node verify.js` → `=== 818 passed, 0 failed ===` (exit 0)
-- `node verify-dom.js` → `=== 216 passed, 0 failed ===` (exit 0)
-- `node qa-live-recalc-check.js` → `PASS: 389 QA scenario assertions passed.` (exit 0)
-- `node qa-dom-live-recalc-check.js` → `PASS: 68 DOM/live-render QA assertions passed.` (exit 0)
+- `node verify.js` → `=== 830 passed, 0 failed ===` (exit 0)
+- `node verify-dom.js` → `=== 224 passed, 0 failed ===` (exit 0)
+- `node qa-live-recalc-check.js` → `PASS: 391 QA scenario assertions passed.` (exit 0)
+- `node qa-dom-live-recalc-check.js` → `PASS: 73 DOM/live-render QA assertions passed.` (exit 0)
 - `node --check ...` → exit 0 for every JS file.
 
 ## Feature coverage map (requested verification → tests)
@@ -216,6 +220,10 @@ Observed command results:
   → `verify.js` Test 0 / Test 1 / Test 19; `qa-live` scenario loop.
 - Each anchor moves only its dependent subgraph; independent chains unchanged →
   `verify.js` Test 6; `qa-live` subgraph section; `qa-dom` per-anchor section.
+- v0.16 devnet date control hidden (3 editable inputs), yet the anchor stays in
+  the model/export and the devnet task remains present and movable via its offset
+  → `verify.js` Test 20; `verify-dom.js` devnet-control-hidden + HTML-input-count
+  sections; `qa-dom` devnet section; `qa-live` control-anchor assertions.
 - Business-day item anchors + downstream recomputation → `verify.js` item-anchor
   tests; `qa-live` item-anchor section; `verify-dom.js` + `qa-dom` downstream
   recompute.
@@ -276,8 +284,10 @@ Observed command results:
 ## Local/static behavior
 
 - `index.html` references only relative local files (`styles.css`, `model.js`,
-  `app.js`); four grouped date inputs (`#wave2_date`, `#v016_devnet_date`,
-  `#v016_testnet_date`, `#circle_announcement_date`) drive their subgraphs.
+  `app.js`); three grouped date inputs (`#wave2_date`, `#v016_testnet_date`,
+  `#circle_announcement_date`) drive their subgraphs. The v0.16 devnet date is a
+  fixed past baseline with **no** control input, but stays in the model/export and
+  as the devnet task's anchor.
 - User edits and chosen defaults persist under `localStorage` key
   `bread-calendar-model-v3r2` (`schema: 3`, `revision: 2`); prior-release keys are
   cleared on load; `Restore shipped defaults` or clearing site data returns to the

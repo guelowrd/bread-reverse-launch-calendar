@@ -40,7 +40,10 @@ function makeEl(id) {
 }
 
 var els = {};
-["wave2_date", "v016_devnet_date", "v016_testnet_date", "circle_announcement_date",
+// Note: v016_devnet_date is intentionally absent -- the devnet date has no control
+// input (fixed past baseline), so getElementById("v016_devnet_date") is undefined,
+// mirroring the real DOM.
+["wave2_date", "v016_testnet_date", "circle_announcement_date",
  "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach(function (id) { var e = makeEl(id); e.classList._owner = e; els[id] = e; });
@@ -224,13 +227,16 @@ check("July first row holds '0) v0.16 on devnet'", julyFirstRow.indexOf("0) v0.1
 check("July trims the empty Jul 5-11 week (no day 11 daynum)", julyBlock.indexOf(">11</span>") === -1);
 check("July trims the empty Jul 1-4 span (no day 4 daynum)", julyBlock.indexOf(">4</span>") === -1);
 
-console.log("\nCalendar week trimming expands when a date anchor moves earlier");
-setAnchor("v016_devnet_date", "2026-06-16"); // pulls the isolated devnet task into June
+console.log("\nDevnet task is still movable (no date control) — moving it earlier expands the span");
+els["view-table"]._fire("click");
+fireEdit("offset", "v016_devnet", "-25"); // pull the devnet task (anchored to its fixed date) into June
+els["view-cal"]._fire("click");
 var cal2 = els.calendar.innerHTML;
-check("earlier v0.16 devnet anchor expands the span to include June 2026", cal2.indexOf("June 2026") !== -1);
+check("moving the devnet task earlier expands the span to include June 2026", cal2.indexOf("June 2026") !== -1);
 els.reset._fire("click"); // restore defaults
 check("reset returns the Wave 2 date input to the default 2026-07-31", els.wave2_date.value === "2026-07-31");
-check("reset returns the v0.16 devnet input to the default 2026-07-17", els.v016_devnet_date.value === "2026-07-17");
+check("reset returns the devnet task to its baseline 2026-07-17",
+  M.findTask(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).tasks, "v016_devnet").date === "2026-07-17");
 
 // ---- Table view ------------------------------------------------------------
 console.log("\nTable view (editable rows)");
@@ -268,6 +274,15 @@ check("table category select shows renamed '4) Website / waitlist'", tbl.indexOf
   check("decision row present in table: " + id, tbl.indexOf('data-row-id="' + id + '"') !== -1);
 });
 check("no wave6_start row in the table", tbl.indexOf('data-row-id="wave6_start"') === -1);
+
+console.log("\nDevnet date control hidden, but the devnet task + anchor data survive");
+check("devnet task row is still present in the table", tbl.indexOf('data-row-id="v016_devnet"') !== -1);
+check("devnet task still renders at its baseline date 2026-07-17", rowHas("0) v0.16 on devnet", "2026-07-17"));
+check("anchor dropdown still offers 'v0.16 devnet' (so the devnet task shows/keeps its anchor)", tbl.indexOf(">v0.16 devnet<") !== -1);
+check("devnet task is still date-anchored to v016_devnet_date",
+  App.state.model.find(function (t) { return t.id === "v016_devnet"; }).anchor_id === "v016_devnet_date");
+check("export still carries the fixed v016_devnet_date baseline (2026-07-17)",
+  JSON.parse(App.exportJSON()).v016_devnet_date === "2026-07-17");
 
 // ---- Editing: label / row reset --------------------------------------------
 console.log("\nEdit label of a row + row reset");
@@ -582,10 +597,12 @@ var htmlSrc = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 check("title is exactly 'Bread Reverse Launch Calendar'", htmlSrc.indexOf("<title>Bread Reverse Launch Calendar</title>") !== -1);
 check("h1 is exactly 'Bread Reverse Launch Calendar'", htmlSrc.indexOf("<h1>Bread Reverse Launch Calendar</h1>") !== -1);
 check("grouped 'Date anchors' control block present", htmlSrc.indexOf("Date anchors") !== -1 && htmlSrc.indexOf('class="control anchors"') !== -1);
-check("all four date inputs present",
-  htmlSrc.indexOf('id="wave2_date"') !== -1 && htmlSrc.indexOf('id="v016_devnet_date"') !== -1 &&
-  htmlSrc.indexOf('id="v016_testnet_date"') !== -1 && htmlSrc.indexOf('id="circle_announcement_date"') !== -1);
-check("date inputs are clearly labelled", htmlSrc.indexOf("Wave 2 start") !== -1 && htmlSrc.indexOf("v0.16 devnet") !== -1 && htmlSrc.indexOf("v0.16 testnet") !== -1 && htmlSrc.indexOf("Circle announcement") !== -1);
+check("exactly three date-anchor inputs present (Wave 2, testnet, Circle)",
+  htmlSrc.indexOf('id="wave2_date"') !== -1 && htmlSrc.indexOf('id="v016_testnet_date"') !== -1 &&
+  htmlSrc.indexOf('id="circle_announcement_date"') !== -1);
+check("the v0.16 devnet date is NOT rendered as a control input (past baseline)", htmlSrc.indexOf('id="v016_devnet_date"') === -1);
+check("only three date inputs total in the controls", (htmlSrc.match(/<input type="date"/g) || []).length === 3);
+check("the three shown date inputs are clearly labelled", htmlSrc.indexOf("Wave 2 start") !== -1 && htmlSrc.indexOf("v0.16 testnet") !== -1 && htmlSrc.indexOf("Circle announcement") !== -1);
 check("no legacy single wave2 input id", htmlSrc.indexOf('id="wave2"') === -1);
 check("no teaser input", htmlSrc.indexOf('id="teaser"') === -1);
 check("no launch input", htmlSrc.indexOf('id="launch"') === -1);
@@ -603,6 +620,7 @@ check("app.js: no legacy DEFAULT_WAVE2 single-anchor usage", appSrc.indexOf("DEF
 check("app.js: no patternClass / decorative pattern usage", appSrc.indexOf("patternClass") === -1 && appSrc.indexOf("pat-cross") === -1);
 check("app.js: no EXT badge markup", appSrc.indexOf(">EXT<") === -1 && appSrc.indexOf('"badge ext"') === -1 && appSrc.indexOf("ext-mark") === -1);
 check("app.js: uses the four date anchors (DATE_ANCHOR_IDS + normalizeAnchors)", appSrc.indexOf("DATE_ANCHOR_IDS") !== -1 && appSrc.indexOf("normalizeAnchors") !== -1);
+check("app.js: drives anchor inputs off CONTROL_ANCHOR_IDS (devnet control hidden)", appSrc.indexOf("CONTROL_ANCHOR_IDS") !== -1);
 check("styles.css: details popup is position:fixed (floating)", /\.details\s*\{[^}]*position:\s*fixed/.test(cssSrc));
 check("styles.css: no .badge.ext external cue remains", cssSrc.indexOf(".badge.ext") === -1);
 check("styles.css: no decorative pattern classes remain", ["pat-cross", "pat-vertical", "pat-horizontal", "pat-diagonal", "pat-circle"].every(function (p) { return cssSrc.indexOf(p) === -1; }));

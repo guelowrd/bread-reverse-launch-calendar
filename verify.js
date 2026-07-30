@@ -476,5 +476,35 @@ M.SHIPPED_TASKS.forEach(function (t) {
 });
 check("full graph load leaves 0 unresolved anchors and 0 cycles", base.errors.length === 0);
 
+console.log("\nTest 20: v0.16 devnet date is a non-control anchor but stays in the model/export");
+// The model still knows all four date anchors; only the CONTROL subset gets a UI
+// date input. The v0.16 devnet date is a fixed past baseline: no control, but it
+// is still a valid anchor, still exported, and its task is still movable.
+check("DATE_ANCHOR_IDS still has all four anchors", M.DATE_ANCHOR_IDS.length === 4);
+check("CONTROL_ANCHOR_IDS has exactly three (devnet excluded)",
+  M.CONTROL_ANCHOR_IDS.length === 3 &&
+  M.CONTROL_ANCHOR_IDS.join(",") === "wave2_date,v016_testnet_date,circle_announcement_date");
+check("v016_devnet_date is NOT a control anchor", M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1);
+check("the other three anchors ARE control anchors",
+  ["wave2_date", "v016_testnet_date", "circle_announcement_date"].every(function (id) { return M.CONTROL_ANCHOR_IDS.indexOf(id) !== -1; }));
+check("v016_devnet_date is still a valid date anchor id", M.isDateAnchorId("v016_devnet_date") === true);
+check("devnet task still present + date-anchored to v016_devnet_date",
+  byId(base, "v016_devnet").anchor_type === "date_anchor" && byId(base, "v016_devnet").anchor_id === "v016_devnet_date");
+check("devnet task still resolves to its baseline date 2026-07-17", byId(base, "v016_devnet").date === "2026-07-17");
+var exDev = M.exportModel(M.defaultAnchors(), M.defaultModel());
+check("export still round-trips the fixed devnet date (2026-07-17)", exDev.v016_devnet_date === "2026-07-17");
+check("defaultAnchors still includes the devnet baseline", M.defaultAnchors().v016_devnet_date === "2026-07-17");
+// Devnet task is still movable via its own offset (no date-control needed).
+var mDev = M.defaultModel();
+M.findTask(mDev, "v016_devnet").offset_business_days = -20; // pull it earlier into June
+var rDev = M.recalc({ tasks: mDev });
+check("devnet task moves via its offset (still movable)", rDev.errors.length === 0 && byId(rDev, "v016_devnet").date === M.addBusinessDays("2026-07-17", -20));
+check("moving the devnet task does not disturb other chains", byId(rDev, "wave2_start").date === EXPECT.wave2_start && byId(rDev, "v016_testnet").date === EXPECT.v016_testnet);
+// The fixed devnet anchor date can still be moved programmatically (e.g. import),
+// and still moves only its subgraph, even without a UI control.
+var rDevAnchor = M.recalc({ anchors: Object.assign(M.defaultAnchors(), { v016_devnet_date: "2026-07-10" }) });
+check("devnet anchor still drives only the devnet task when set via the model",
+  byId(rDevAnchor, "v016_devnet").date === "2026-07-10" && byId(rDevAnchor, "wave2_start").date === EXPECT.wave2_start);
+
 console.log("\n=== " + pass + " passed, " + fail + " failed ===");
 process.exit(fail === 0 ? 0 : 1);

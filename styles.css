@@ -68,8 +68,8 @@ fieldset.anchors {
   grid-template-columns: repeat(2, minmax(150px, 1fr));
   gap: 8px 16px;
 }
-@media (min-width: 920px) {
-  .anchor-fields { grid-template-columns: repeat(4, minmax(140px, auto)); }
+@media (min-width: 720px) {
+  .anchor-fields { grid-template-columns: repeat(3, minmax(140px, auto)); }
 }
 .anchor-field { display: flex; flex-direction: column; }
 .anchor-field label { font-size: 11px; font-weight: 600; margin-bottom: 3px; color: #4b5563; }

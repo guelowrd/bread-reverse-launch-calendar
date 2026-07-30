@@ -31,17 +31,25 @@
   //
   // Each entry: stable id (also the top-level field name in the exported JSON),
   // a human label (used in the anchor dropdown / details), a SHORT chip label
-  // shown on the calendar day cell, and the shipped default date. The order here
-  // is the order used in the export and in the control strip.
+  // shown on the calendar day cell, the shipped default date, and an optional
+  // `control` flag. `control: false` keeps the anchor in the model/export and as a
+  // valid task anchor, but hides its editable date input from the top control
+  // strip -- used for the v0.16 devnet date, which is a fixed past baseline (the
+  // devnet task is still movable via its offset / drag / re-anchor). The order
+  // here is the order used in the export and in the control strip.
   var DATE_ANCHORS = [
-    { id: "wave2_date",               label: "Wave 2 start",        chip: "WAVE 2",  default: "2026-07-31" }, // Friday
-    { id: "v016_devnet_date",         label: "v0.16 devnet",        chip: "DEVNET",  default: "2026-07-17" }, // Friday
-    { id: "v016_testnet_date",        label: "v0.16 testnet",       chip: "TESTNET", default: "2026-08-05" }, // Wednesday
-    { id: "circle_announcement_date", label: "Circle announcement", chip: "CIRCLE",  default: "2026-08-12" }  // Wednesday
+    { id: "wave2_date",               label: "Wave 2 start",        chip: "WAVE 2",  default: "2026-07-31" },                    // Friday
+    { id: "v016_devnet_date",         label: "v0.16 devnet",        chip: "DEVNET",  default: "2026-07-17", control: false },    // Friday (past; no control)
+    { id: "v016_testnet_date",        label: "v0.16 testnet",       chip: "TESTNET", default: "2026-08-05" },                    // Wednesday
+    { id: "circle_announcement_date", label: "Circle announcement", chip: "CIRCLE",  default: "2026-08-12" }                     // Wednesday
   ];
   var DATE_ANCHOR_BY_ID = {};
   DATE_ANCHORS.forEach(function (a) { DATE_ANCHOR_BY_ID[a.id] = a; });
   var DATE_ANCHOR_IDS = DATE_ANCHORS.map(function (a) { return a.id; });
+  // The subset of date anchors that get an editable input in the top control
+  // strip (all except those marked `control: false`). The model still resolves,
+  // exports, and round-trips ALL four anchors regardless of this list.
+  var CONTROL_ANCHOR_IDS = DATE_ANCHORS.filter(function (a) { return a.control !== false; }).map(function (a) { return a.id; });
 
   // Canonical fallback date anchor: brand-new tasks and orphaned dependents anchor
   // here when nothing more specific applies.
@@ -602,6 +610,7 @@
   var api = {
     DATE_ANCHORS: DATE_ANCHORS,
     DATE_ANCHOR_IDS: DATE_ANCHOR_IDS,
+    CONTROL_ANCHOR_IDS: CONTROL_ANCHOR_IDS,
     DATE_ANCHOR_BY_ID: DATE_ANCHOR_BY_ID,
     DEFAULT_ANCHORS: DEFAULT_ANCHORS,
     WAVE2_ANCHOR: WAVE2_ANCHOR,

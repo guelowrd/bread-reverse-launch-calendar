@@ -110,7 +110,11 @@ M.SHIPPED_TASKS.forEach((task) => {
 const items = M.SHIPPED_TASKS.filter((t) => t.anchor_type === "item_anchor");
 assert(items.some((t) => t.external_dependency) && items.some((t) => !t.external_dependency),
   "external_dependency is a stored flag (item anchors are a mix of external and internal)"); assertions++;
-assert(M.DATE_ANCHOR_IDS.length === 4, "exactly four editable date anchors"); assertions++;
+assert(M.DATE_ANCHOR_IDS.length === 4, "exactly four date anchors in the model"); assertions++;
+assert(M.CONTROL_ANCHOR_IDS.length === 3 && M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1,
+  "three editable control anchors; v0.16 devnet (past baseline) is not a control"); assertions++;
+assert(M.isDateAnchorId("v016_devnet_date") && M.defaultAnchors().v016_devnet_date === "2026-07-17",
+  "v016_devnet_date remains a valid, exported date anchor even without a control"); assertions++;
 console.log(`deduced/stored-field check: anchor_type derived for all ${M.SHIPPED_TASKS.length} tasks; external_dependency is a stored semantic flag; four date anchors`);
 
 // Add / remove: a new task is added with a unique id and resolves; removing a
