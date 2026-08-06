@@ -14,11 +14,12 @@
   <div class="controls">
     <fieldset class="control anchors">
       <legend>Date anchors</legend>
+      <!-- Only the two still-editable date anchors get an input, in this order:
+           v0.16 testnet, then Circle announcement. The Wave 2 start and v0.16
+           devnet dates are fixed past baselines with no control here; they remain
+           in the model, export, anchor dropdown, and calendar chips (see
+           model.js DATE_ANCHORS `control: false`). -->
       <div class="anchor-fields">
-        <div class="anchor-field">
-          <label for="wave2_date">Wave 2 start</label>
-          <input type="date" id="wave2_date">
-        </div>
         <div class="anchor-field">
           <label for="v016_testnet_date">v0.16 testnet</label>
           <input type="date" id="v016_testnet_date">

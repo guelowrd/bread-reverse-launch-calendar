@@ -1,9 +1,11 @@
 # Bread Reverse Launch Calendar
 
 A self-contained, no-build local artifact that turns Pam's static Bread reverse
-launch calendar into an interactive one. Move any of the **four date anchors**,
-edit/add/remove any task, and drag tasks around the calendar; all **33 tasks**
-recalculate from **business-day** offsets across an anchor **graph**.
+launch calendar into an interactive one. Move either of the **two editable date
+anchors** (v0.16 testnet, Circle announcement), edit/add/remove any task, and drag
+tasks around the calendar; all **33 tasks** recalculate from **business-day**
+offsets across an anchor **graph**. (Two further anchors — Wave 2 start and v0.16
+devnet — are fixed past baselines that stay in the model but have no top control.)
 
 The shipped default model is the authoritative wave-based v3 JSON
 (`bread-calendar-model-v3.json`, copied into the repo as `baseline-model.json`):
@@ -26,23 +28,26 @@ This model is a dependency graph:
 
 v3 has **four** independent date anchors, each rooting its **own** subgraph.
 Moving one anchor recomputes only its dependent tasks; the other three chains are
-untouched. **Three** of them are exposed as editable inputs in the "Date anchors"
-control strip; the **v0.16 devnet** date is a fixed **past** baseline that stays
-in the model/export (so the authoritative JSON round-trips) but has **no** editable
-control (its `control` flag is `false`). The devnet task itself is still movable
-via its offset, drag/drop, or re-anchoring.
+untouched. Only **two** of them are exposed as editable inputs in the "Date
+anchors" control strip, in this order: **v0.16 testnet**, then **Circle
+announcement**. The **Wave 2 start** and **v0.16 devnet** dates are fixed **past**
+baselines that stay in the model/export (so the authoritative JSON round-trips),
+still feed the anchor dropdown and calendar chips, but have **no** editable control
+(their `control` flag is `false`). Their tasks are still movable via offset,
+drag/drop, or re-anchoring.
 
 | anchor id | label | default | control | roots |
 |---|---|---|:---:|---|
-| `wave2_date` | Wave 2 start | **2026-07-31** | ✓ | Wave 2 company-wide testing → changes → stores, and Waves 3/4/5 (each `+6bd` from the prior wave start), plus their decisions, comms, and video prep |
+| `wave2_date` | Wave 2 start | **2026-07-31** |  | Wave 2 company-wide testing → changes → stores, and Waves 3/4/5 (Wave 3 `+16bd` off Wave 2 start, Wave 4 `+8bd` off Wave 3, Wave 5 `+6bd` off Wave 4), plus their decisions, comms, and teaser prep (fixed past baseline, no control) |
 | `v016_devnet_date` | v0.16 devnet | **2026-07-17** |  | `0) v0.16 on devnet` (standalone; fixed past baseline, no control) |
-| `v016_testnet_date` | v0.16 testnet | **2026-08-05** | ✓ | `0) v0.16 on testnet` → Guardian upgrade (`-2bd`) → Client/wallet/Epoch (`+4bd`) |
-| `circle_announcement_date` | Circle announcement | **2026-08-12** | ✓ | `7) PUBLIC: Circle announcement` → website go-live → waitlist QA (`website_out -1bd`) |
+| `v016_testnet_date` | v0.16 testnet | **2026-08-05** | ✓ | `0) v0.16 on testnet` (`+8bd`) → Guardian upgrade (`-2bd`) → Client/wallet/Epoch (`+4bd`) |
+| `circle_announcement_date` | Circle announcement | **2026-08-12** | ✓ | `7) PUBLIC: Circle announcement` → website go-live → waitlist QA (`website_out -1bd`) and the visual-identity board (`website_out -2bd`) |
 
 Earlier revisions used a **single** `wave2_date` anchor that moved the entire
 graph. That is no longer true: the devnet/testnet releases and the Circle
 announcement are fixed calendar commitments in their own right, so each is its
-own anchor and moves only what depends on it.
+own anchor and moves only what depends on it. Wave 2 has now itself passed, so its
+date is a hidden baseline like the devnet date.
 
 ## Run it
 
@@ -59,10 +64,10 @@ No build step, no dependencies.
 
 ## What it does
 
-- **Three editable date-anchor inputs** (Wave 2 start, v0.16 testnet, Circle
-  announcement), grouped and labelled under a "Date anchors" block. Editing one
-  recalculates its dependent subgraph instantly; the other chains stay put. The
-  v0.16 devnet date is a fixed past baseline and is **not** shown as a control.
+- **Two editable date-anchor inputs** (v0.16 testnet, then Circle announcement),
+  grouped and labelled under a "Date anchors" block. Editing one recalculates its
+  dependent subgraph instantly; the other chains stay put. The Wave 2 start and
+  v0.16 devnet dates are fixed past baselines and are **not** shown as controls.
 - **Calendar view** (month grids covering whatever span the recalculated tasks
   occupy) and **Table view**. Today's date is highlighted in blue. Leading/
   trailing empty week rows are trimmed dynamically. **Week trimming is computed
@@ -188,40 +193,40 @@ by date; the last column marks a **stored** external dependency):
 | `1) PRODUCT: Wave 2 decision` | Product / go-no-go | item: `1) PRODUCT: Wave 2 company-wide testing` | -1 | 2026-07-30 |  |
 | `5) SUPPORT: intake workflow ready` | Support | item: `1) PRODUCT: Wave 2 company-wide testing` | -1 | 2026-07-30 |  |
 | `1) PRODUCT: Wave 2 company-wide testing` | Product / go-no-go | date: Wave 2 start | +0 | 2026-07-31 |  |
-| `0) Guardian upgrade done` | v0.16 dependency | item: `0) v0.16 on testnet` | -2 | 2026-08-03 | ✓ |
 | `1) PRODUCT: Wave 2 changes applied` | Product / go-no-go | item: `1) PRODUCT: Wave 2 company-wide testing` | +3 | 2026-08-05 |  |
 | `2) STORES: submit post-Wave-2 build` | Stores | item: `1) PRODUCT: Wave 2 changes applied` | +0 | 2026-08-05 |  |
-| `0) v0.16 on testnet` | v0.16 dependency | date: v0.16 testnet | +0 | 2026-08-05 | ✓ |
 | `2) STORES: post-Wave-2 build live` | Stores | item: `2) STORES: submit post-Wave-2 build` | +1 | 2026-08-06 | ✓ |
-| `0) Client/wallet/Epoch upgrade done` | v0.16 dependency | item: `0) Guardian upgrade done` | +4 | 2026-08-07 | ✓ |
-| `1) PRODUCT: Wave 3 decision` | Product / go-no-go | item: `1) PRODUCT: Wave 3 trusted-network testing` | -1 | 2026-08-07 |  |
-| `6) COMMS: Wave 3 tester pack ready` | Comms | item: `1) PRODUCT: Wave 3 trusted-network testing` | -1 | 2026-08-07 |  |
-| `3) VISUAL IDENTITY: board ready` | Video / design | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -7 | 2026-08-07 |  |
-| `1) PRODUCT: Wave 3 trusted-network testing` | Product / go-no-go | item: `1) PRODUCT: Wave 2 company-wide testing` | +6 | 2026-08-10 |  |
+| `3) VISUAL IDENTITY: board ready` | Video / design | item: `4) WEBSITE: new website + Bread waitlist live` | -2 | 2026-08-10 |  |
 | `4) WAITLIST: form + CRM flow ready` | Website / waitlist | item: `4) WEBSITE: new website + Bread waitlist live` | -1 | 2026-08-11 |  |
 | `7) PUBLIC: Circle announcement` | Public moment | date: Circle announcement | +0 | 2026-08-12 | ✓ |
 | `4) WEBSITE: new website + Bread waitlist live` | Website / waitlist | item: `7) PUBLIC: Circle announcement` | +0 | 2026-08-12 | ✓ |
-| `1) PRODUCT: Wave 3 changes applied` | Product / go-no-go | item: `1) PRODUCT: Wave 3 trusted-network testing` | +3 | 2026-08-13 |  |
-| `2) STORES: submit post-Wave-3 build` | Stores | item: `1) PRODUCT: Wave 3 changes applied` | +0 | 2026-08-13 |  |
-| `2) STORES: post-Wave-3 build live` | Stores | item: `2) STORES: submit post-Wave-3 build` | +1 | 2026-08-14 | ✓ |
-| `3) VIDEO: teaser final` | Video / design | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -1 | 2026-08-17 |  |
-| `6) COMMS: Wave 4 channels + waitlist CTA ready` | Comms | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -1 | 2026-08-17 |  |
-| `1) PRODUCT: Wave 4 decision` | Product / go-no-go | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -1 | 2026-08-17 |  |
-| `7) PUBLIC: Wave 4 teaser + waitlist push` | Public moment | item: `1) PRODUCT: Wave 3 trusted-network testing` | +6 | 2026-08-18 |  |
-| `1) PRODUCT: Wave 4 changes applied` | Product / go-no-go | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | +3 | 2026-08-21 |  |
-| `2) STORES: submit post-Wave-4 build` | Stores | item: `1) PRODUCT: Wave 4 changes applied` | +0 | 2026-08-21 |  |
-| `2) STORES: post-Wave-4 build live` | Stores | item: `2) STORES: submit post-Wave-4 build` | +1 | 2026-08-24 | ✓ |
-| `6) COMMS: Wave 5 X push + How Bread Works ready` | Comms | item: `7) PUBLIC: Wave 5 X waitlist follow-up` | -1 | 2026-08-25 |  |
-| `1) PRODUCT: Wave 5 decision` | Product / go-no-go | item: `7) PUBLIC: Wave 5 X waitlist follow-up` | -1 | 2026-08-25 |  |
-| `7) PUBLIC: Wave 5 X waitlist follow-up` | Public moment | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | +6 | 2026-08-26 |  |
-| `1) PRODUCT: Wave 5 changes applied` | Product / go-no-go | item: `7) PUBLIC: Wave 5 X waitlist follow-up` | +3 | 2026-08-31 |  |
-| `2) STORES: submit post-Wave-5 build` | Stores | item: `1) PRODUCT: Wave 5 changes applied` | +0 | 2026-08-31 |  |
-| `2) STORES: post-Wave-5 build live` | Stores | item: `2) STORES: submit post-Wave-5 build` | +1 | 2026-09-01 | ✓ |
+| `0) Guardian upgrade done` | v0.16 dependency | item: `0) v0.16 on testnet` | -2 | 2026-08-13 | ✓ |
+| `0) v0.16 on testnet` | v0.16 dependency | date: v0.16 testnet | +8 | 2026-08-17 | ✓ |
+| `0) Client/wallet/Epoch upgrade done` | v0.16 dependency | item: `0) Guardian upgrade done` | +4 | 2026-08-19 | ✓ |
+| `6) COMMS: Wave 3 tester pack ready` | Comms | item: `1) PRODUCT: Wave 3 trusted-network testing` | -2 | 2026-08-20 |  |
+| `1) PRODUCT: Wave 3 decision` | Product / go-no-go | item: `1) PRODUCT: Wave 3 trusted-network testing` | -1 | 2026-08-21 |  |
+| `1) PRODUCT: Wave 3 trusted-network testing` | Product / go-no-go | item: `1) PRODUCT: Wave 2 company-wide testing` | +16 | 2026-08-24 |  |
+| `1) PRODUCT: Wave 3 changes applied` | Product / go-no-go | item: `1) PRODUCT: Wave 3 trusted-network testing` | +3 | 2026-08-27 |  |
+| `2) STORES: submit post-Wave-3 build` | Stores | item: `1) PRODUCT: Wave 3 changes applied` | +0 | 2026-08-27 |  |
+| `2) STORES: post-Wave-3 build live` | Stores | item: `2) STORES: submit post-Wave-3 build` | +1 | 2026-08-28 | ✓ |
+| `3) VIDEO: teaser final` | Video / design | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -2 | 2026-09-01 |  |
+| `6) COMMS: Wave 4 channels + waitlist CTA ready` | Comms | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -2 | 2026-09-01 |  |
+| `1) PRODUCT: Wave 4 decision` | Product / go-no-go | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | -1 | 2026-09-02 |  |
+| `7) PUBLIC: Wave 4 teaser + waitlist push` | Public moment | item: `1) PRODUCT: Wave 3 trusted-network testing` | +8 | 2026-09-03 |  |
+| `1) PRODUCT: Wave 4 changes applied` | Product / go-no-go | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | +3 | 2026-09-08 |  |
+| `2) STORES: submit post-Wave-4 build` | Stores | item: `1) PRODUCT: Wave 4 changes applied` | +0 | 2026-09-08 |  |
+| `2) STORES: post-Wave-4 build live` | Stores | item: `2) STORES: submit post-Wave-4 build` | +1 | 2026-09-09 | ✓ |
+| `6) COMMS: Wave 5 X push + How Bread Works ready` | Comms | item: `7) PUBLIC: Wave 5 X waitlist follow-up` | -1 | 2026-09-10 |  |
+| `1) PRODUCT: Wave 5 decision` | Product / go-no-go | item: `7) PUBLIC: Wave 5 X waitlist follow-up` | -1 | 2026-09-10 |  |
+| `7) PUBLIC: Wave 5 X waitlist follow-up` | Public moment | item: `7) PUBLIC: Wave 4 teaser + waitlist push` | +6 | 2026-09-11 |  |
+| `1) PRODUCT: Wave 5 changes applied` | Product / go-no-go | item: `7) PUBLIC: Wave 5 X waitlist follow-up` | +3 | 2026-09-16 |  |
+| `2) STORES: submit post-Wave-5 build` | Stores | item: `1) PRODUCT: Wave 5 changes applied` | +0 | 2026-09-16 |  |
+| `2) STORES: post-Wave-5 build live` | Stores | item: `2) STORES: submit post-Wave-5 build` | +1 | 2026-09-17 | ✓ |
 
 The earliest content is `0) v0.16 on devnet` (2026-07-17, a Friday), so with the
 default anchors the July grid's first visible week row is **Jul 12-18** (the empty
 weeks before are trimmed). The latest is `2) STORES: post-Wave-5 build live`
-(2026-09-01), so the calendar spans July → September 2026.
+(2026-09-17), so the calendar spans July → September 2026.
 
 ### Relationship to `baseline-model.json`
 
@@ -240,16 +245,17 @@ tests:
 - **Support is ready before Wave 2 and active throughout** —
   `5) SUPPORT: intake workflow ready` (2026-07-30) lands before Wave 2 start
   (2026-07-31).
-- **v0.16 chain** — Devnet (its own anchor) and Testnet (its own anchor) →
-  Guardian (`-2bd` off testnet) → Client/wallet/Epoch (`+4bd` off Guardian).
+- **v0.16 chain** — Devnet (its own anchor) and Testnet (its own anchor, resolved
+  at `+8bd` off the testnet date) → Guardian (`-2bd` off testnet) →
+  Client/wallet/Epoch (`+4bd` off Guardian).
 - **Waves cascade** — Wave 2 is the `wave2_date` anchor; Wave 3 is
-  `wave2_start +6bd`, Wave 4 is `wave3_start +6bd`, Wave 5 is `wave4_start +6bd`.
+  `wave2_start +16bd`, Wave 4 is `wave3_start +8bd`, Wave 5 is `wave4_start +6bd`.
   Each wave has a **decision** (`-1bd` off the wave start), **changes applied**
   (`+3bd`), a **store submit** (same day as changes), and a **store go-live**
   (`+1bd` off submit).
-- **Circle / website / waitlist** — Circle announcement is a fixed date anchor;
-  the website go-live anchors Circle (`+0bd`) and the waitlist QA is
-  `website_out -1bd`.
+- **Circle / website / waitlist / visual identity** — Circle announcement is a
+  fixed date anchor; the website go-live anchors Circle (`+0bd`), the waitlist QA
+  is `website_out -1bd`, and the visual-identity board is `website_out -2bd`.
 
 ## External dependencies
 
@@ -267,16 +273,16 @@ The artifact is a **static local page**: it cannot write back to its own source
 files. So editable state lives in the browser:
 
 - **`localStorage` holds your working model** under the key
-  `bread-calendar-model-v3r2` (a payload
-  `{ schema: 3, revision: 2, anchors, tasks }`). Every edit, add/remove, the
-  editable anchor dates (all four are persisted; only three are editable), and any
+  `bread-calendar-model-v3r3` (a payload
+  `{ schema: 3, revision: 3, anchors, tasks }`). Every edit, add/remove, the
+  editable anchor dates (all four are persisted; only two are editable), and any
   user-chosen defaults are saved and restored on the next load. **Stale state cannot mask the new defaults:** the v3 schema is
-  unchanged but the structure/defaults changed, so a new **storage key** plus an
-  explicit **model revision** is used. Any prior-release state under the old
-  `bread-calendar-model-v3` / `-v2` / `bread-calendar-model` keys is proactively
-  removed on load, and a payload under the current key whose `schema` isn't `3` or
-  `revision` isn't `2` is ignored. Accepted models are normalized on load (derived
-  `anchor_type` recomputed; old `n text` labels migrated to `n) text`).
+  unchanged but the shipped defaults changed, so a new **storage key** plus a
+  bumped **model revision** is used. Any prior-release state under the old
+  `bread-calendar-model-v3r2` / `-v3` / `-v2` / `bread-calendar-model` keys is
+  proactively removed on load, and a payload under the current key whose `schema`
+  isn't `3` or `revision` isn't `3` is ignored. Accepted models are normalized on
+  load (derived `anchor_type` recomputed; old `n text` labels migrated to `n) text`).
 - **`Set current as defaults`** promotes the current values into each task's
   `default_*` fields. Afterwards, **Reset** and export use those values.
 - **`Reset to defaults`** restores every row to its currently chosen defaults and
@@ -293,7 +299,7 @@ files. So editable state lives in the browser:
 
 | file | purpose |
 |---|---|
-| `index.html` | page shell + controls (three grouped date-anchor inputs; devnet date is a fixed baseline with no control) |
+| `index.html` | page shell + controls (two grouped date-anchor inputs — v0.16 testnet, then Circle; Wave 2 start + v0.16 devnet dates are fixed baselines with no control) |
 | `model.js` | task graph model (33 tasks, four date anchors) + business-day math + derived `anchor_type` + stored `external_dependency` + add/remove helpers + resolution/cycle detection; shared by browser and tests |
 | `app.js` | browser UI: calendar/table rendering, editing, add/remove, drag/drop, floating highlight popup, versioned+revisioned localStorage, export, legend filter |
 | `baseline-model.json` | copy of the authoritative v3 JSON; `verify.js` compares shipped defaults against it |

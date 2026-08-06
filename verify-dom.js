@@ -3,9 +3,11 @@
  * shim, no jsdom/chromium required. Confirms app.js builds the calendar/table
  * from model.js (wave-based v3, four date anchors) and that editing, defaults,
  * export, drag/drop, click-highlight, the legend filter, the floating details
- * popup, stable-across-filter week trimming, the four editable date anchors, the
- * streamlined (no-EXT-badge, no-pattern) card treatment, and stale-/fresh-
- * localStorage handling (new storage key + model revision) all work end to end.
+ * popup, stable-across-filter week trimming, the TWO editable top date anchors
+ * (v0.16 testnet then Circle announcement; the Wave 2 start and v0.16 devnet dates
+ * are hidden past baselines), the streamlined (no-EXT-badge, no-pattern) card
+ * treatment, and stale-/fresh-localStorage handling (new storage key + model
+ * revision) all work end to end.
  * Run: node verify-dom.js   (exit 0 = pass)
  */
 var fs = require("fs");
@@ -20,7 +22,7 @@ function check(name, cond, extra) {
 }
 
 var TASK_COUNT = 33;
-var STORAGE_KEY = "bread-calendar-model-v3r2";
+var STORAGE_KEY = "bread-calendar-model-v3r3";
 
 // ---- Minimal DOM shim ------------------------------------------------------
 function makeEl(id) {
@@ -40,10 +42,11 @@ function makeEl(id) {
 }
 
 var els = {};
-// Note: v016_devnet_date is intentionally absent -- the devnet date has no control
-// input (fixed past baseline), so getElementById("v016_devnet_date") is undefined,
-// mirroring the real DOM.
-["wave2_date", "v016_testnet_date", "circle_announcement_date",
+// Note: wave2_date AND v016_devnet_date are intentionally absent -- both are fixed
+// past baselines with no top control input, so getElementById returns undefined for
+// them, mirroring the real DOM. Only v016_testnet_date and circle_announcement_date
+// have editable inputs.
+["v016_testnet_date", "circle_announcement_date",
  "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach(function (id) { var e = makeEl(id); e.classList._owner = e; els[id] = e; });
@@ -131,7 +134,7 @@ console.log("Initial render (defaults, calendar view)");
 var cal = els.calendar.innerHTML;
 check("calendar shows July 2026 header", cal.indexOf("July 2026") !== -1);
 check("calendar shows August 2026 header", cal.indexOf("August 2026") !== -1);
-check("calendar shows September 2026 header (Wave 5 store-live lands 2026-09-01)", cal.indexOf("September 2026") !== -1);
+check("calendar shows September 2026 header (Wave 5 store-live lands 2026-09-17)", cal.indexOf("September 2026") !== -1);
 check("calendar renders the WAVE 2 anchor chip", cal.indexOf("WAVE 2") !== -1);
 check("calendar renders the DEVNET anchor chip", cal.indexOf("DEVNET") !== -1);
 check("calendar renders the TESTNET anchor chip", cal.indexOf("TESTNET") !== -1);
@@ -169,8 +172,8 @@ var resInit = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
 function d(id) { return M.findTask(resInit.tasks, id).date; }
 check("support intake workflow ready (2026-07-30) is before Wave 2 start (2026-07-31)", d("support_ready") < d("wave2_start"), d("support_ready") + " vs " + d("wave2_start"));
 check("v0.16 on devnet (2026-07-17) is before Wave 2 start", d("v016_devnet") < d("wave2_start"));
-check("Wave 3 starts after Wave 2 start (wave3_start = wave2_start +6bd)",
-  d("wave3_start") > d("wave2_start") && d("wave3_start") === M.addBusinessDays(d("wave2_start"), 6));
+check("Wave 3 starts after Wave 2 start (wave3_start = wave2_start +16bd)",
+  d("wave3_start") > d("wave2_start") && d("wave3_start") === M.addBusinessDays(d("wave2_start"), 16));
 check("Circle announcement precedes website + waitlist go-live (same or earlier)",
   d("circle_announcement") <= d("website_out") && M.findTask(resInit.tasks, "website_out").anchor_id === "circle_announcement");
 check("waitlist QA is 1bd before the website goes live",
@@ -234,7 +237,7 @@ els["view-cal"]._fire("click");
 var cal2 = els.calendar.innerHTML;
 check("moving the devnet task earlier expands the span to include June 2026", cal2.indexOf("June 2026") !== -1);
 els.reset._fire("click"); // restore defaults
-check("reset returns the Wave 2 date input to the default 2026-07-31", els.wave2_date.value === "2026-07-31");
+check("reset returns the v0.16 testnet date input to the default 2026-08-05", els.v016_testnet_date.value === "2026-08-05");
 check("reset returns the devnet task to its baseline 2026-07-17",
   M.findTask(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).tasks, "v016_devnet").date === "2026-07-17");
 
@@ -260,10 +263,10 @@ check("anchor dropdown lists all four date anchor labels",
 check("anchor dropdown has NO Teaser/Launch options", tbl.indexOf(">Teaser date<") === -1 && tbl.indexOf(">Launch date<") === -1);
 check("offset header names business days", tbl.indexOf("Offset (business days)") !== -1);
 check("row Reset button present", tbl.indexOf('data-reset="') !== -1);
-check("table shows '0) Client/wallet/Epoch upgrade done' at 2026-08-07 (guardian +4bd)",
-  rowHas("0) Client/wallet/Epoch upgrade done", "2026-08-07"));
-check("table shows '1) PRODUCT: Wave 4 decision' at 2026-08-17",
-  rowHas("1) PRODUCT: Wave 4 decision", "2026-08-17"));
+check("table shows '0) Client/wallet/Epoch upgrade done' at 2026-08-19 (guardian +4bd)",
+  rowHas("0) Client/wallet/Epoch upgrade done", "2026-08-19"));
+check("table shows '1) PRODUCT: Wave 4 decision' at 2026-09-02",
+  rowHas("1) PRODUCT: Wave 4 decision", "2026-09-02"));
 check("table category select prefixes Public moment with '7)'", tbl.indexOf("7) Public moment") !== -1);
 check("table category select shows renamed '4) Website / waitlist'", tbl.indexOf("4) Website / waitlist") !== -1);
 ["wave2_stores_submit", "wave2_stores_live", "wave3_stores_submit", "wave3_stores_live",
@@ -328,17 +331,19 @@ els.reset._fire("click"); // restore
 els["view-table"]._fire("click");
 check("reset clears the cycle (no unresolved rows)", els.tableview.innerHTML.indexOf("unresolved") === -1 && els.warnings.innerHTML === "");
 
-// ---- Moving a date anchor shifts ONLY its subgraph -------------------------
-console.log("\nMoving the Wave 2 date shifts only the Wave 2 subgraph; other chains stay put");
+// ---- Moving the (visible) v0.16 testnet date shifts ONLY its subgraph -------
+console.log("\nMoving the v0.16 testnet date shifts only the v0.16 chain; other chains stay put");
 var beforeMove = M.recalc({ anchors: M.defaultAnchors(), tasks: M.defaultModel() });
-setAnchor("wave2_date", "2026-08-07"); // +5 business days later
+setAnchor("v016_testnet_date", "2026-08-12"); // 2026-08-05 +5 business days later
 els["view-table"]._fire("click");
 var afterMove = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
 function movedBy(id, bd) { return M.findTask(afterMove.tasks, id).date === M.addBusinessDays(M.findTask(beforeMove.tasks, id).date, bd); }
-check("wave2_start shifted +5bd", movedBy("wave2_start", 5));
-check("wave5_stores_live (deep in the Wave 2 chain) shifted +5bd", movedBy("wave5_stores_live", 5));
+check("v016_testnet shifted +5bd", movedBy("v016_testnet", 5));
+check("guardian_upgrade_done (testnet chain) shifted +5bd", movedBy("guardian_upgrade_done", 5));
+check("client_wallet_done (deep in the testnet chain) shifted +5bd", movedBy("client_wallet_done", 5));
+check("wave2_start (Wave 2 chain) did NOT move", movedBy("wave2_start", 0));
+check("wave5_stores_live (deep in the Wave 2 chain) did NOT move", movedBy("wave5_stores_live", 0));
 check("v0.16 devnet (own anchor) did NOT move", movedBy("v016_devnet", 0));
-check("v0.16 testnet (own anchor) did NOT move", movedBy("v016_testnet", 0));
 check("Circle announcement (own anchor) did NOT move", movedBy("circle_announcement", 0));
 check("website_out (Circle subgraph) did NOT move", movedBy("website_out", 0));
 els.reset._fire("click");
@@ -349,8 +354,9 @@ setAnchor("circle_announcement_date", "2026-08-19"); // +5 business days later
 var circleAfter = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
 function movedBy2(res0, res1, id, bd) { return M.findTask(res1.tasks, id).date === M.addBusinessDays(M.findTask(res0.tasks, id).date, bd); }
 check("Circle announcement shifted +5bd", movedBy2(circleBefore, circleAfter, "circle_announcement", 5));
-check("website_out + waitlist_qa followed Circle +5bd",
-  movedBy2(circleBefore, circleAfter, "website_out", 5) && movedBy2(circleBefore, circleAfter, "waitlist_qa", 5));
+check("website_out + waitlist_qa + visual_identity_board followed Circle +5bd",
+  movedBy2(circleBefore, circleAfter, "website_out", 5) && movedBy2(circleBefore, circleAfter, "waitlist_qa", 5) &&
+  movedBy2(circleBefore, circleAfter, "visual_identity_board", 5));
 check("Wave 2 chain unaffected by moving Circle", movedBy2(circleBefore, circleAfter, "wave2_start", 0) && movedBy2(circleBefore, circleAfter, "wave5_stores_live", 0));
 els.reset._fire("click");
 
@@ -392,12 +398,12 @@ check("promoted default present in export", w5.default_offset_business_days === 
 els["restore-shipped"]._fire("click");
 
 // ---- localStorage persistence ----------------------------------------------
-console.log("\nlocalStorage persistence across reload (schema-3 revision-2 key)");
+console.log("\nlocalStorage persistence across reload (schema-3 revision-3 key)");
 els["view-table"]._fire("click");
 fireEdit("offset", "wave5_stores_live", "4");
-check("edit was written to the v3r2 storage key", (storageData[STORAGE_KEY] || "").indexOf("wave5_stores_live") !== -1);
-check("persisted payload carries schema:3 + revision:2 + anchors",
-  /"schema":3/.test(storageData[STORAGE_KEY]) && /"revision":2/.test(storageData[STORAGE_KEY]) && /"wave2_date":"2026-07-31"/.test(storageData[STORAGE_KEY]));
+check("edit was written to the v3r3 storage key", (storageData[STORAGE_KEY] || "").indexOf("wave5_stores_live") !== -1);
+check("persisted payload carries schema:3 + revision:3 + anchors",
+  /"schema":3/.test(storageData[STORAGE_KEY]) && /"revision":3/.test(storageData[STORAGE_KEY]) && /"wave2_date":"2026-07-31"/.test(storageData[STORAGE_KEY]));
 var window2 = loadApp({}, makeDocument());
 els["view-table"]._fire("click");
 var reloaded = JSON.parse(window2.BreadApp.exportJSON());
@@ -440,16 +446,28 @@ var winV2 = loadApp({}, makeDocument());
 check("old teaser/launch (v2) state is ignored -> shipped 33-task model", winV2.BreadApp.state.model.length === TASK_COUNT);
 check("legacy v2 key is proactively removed on load", !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v2"));
 
-console.log("\nWrong-revision payload under the current key is discarded");
+console.log("\nWrong-revision payload under the current key is discarded (prior revision-2 can't mask new defaults)");
 storageData = {};
-storageData[STORAGE_KEY] = JSON.stringify({ schema: 3, revision: 1, anchors: { wave2_date: "2026-07-31" }, tasks: [{ id: "x" }] });
+storageData[STORAGE_KEY] = JSON.stringify({ schema: 3, revision: 2, anchors: { wave2_date: "2026-07-31" }, tasks: [{ id: "x" }] });
 var winBadRev = loadApp({}, makeDocument());
-check("revision-1 payload ignored -> shipped 33-task model", winBadRev.BreadApp.state.model.length === TASK_COUNT);
+check("revision-2 payload ignored -> shipped 33-task model", winBadRev.BreadApp.state.model.length === TASK_COUNT);
 
-console.log("\nValid v3r2 state with a stale '{n} text' label is restored + normalized");
+console.log("\nStale prior-release v3r2 key is proactively removed (cannot mask the new defaults)");
+storageData = {};
+storageData["bread-calendar-model-v3r2"] = JSON.stringify({
+  schema: 3, revision: 2, anchors: { wave2_date: "2026-07-31" },
+  tasks: [{ id: "stale_from_v3r2", label: "1) PRODUCT: old", category: "product",
+    anchor_type: "date_anchor", anchor_id: "wave2_date", offset_business_days: 0 }]
+});
+var winV3r2 = loadApp({}, makeDocument());
+check("old v3r2 state is ignored -> shipped 33-task model", winV3r2.BreadApp.state.model.length === TASK_COUNT);
+check("no stale_from_v3r2 task leaks in from the prior-release key", !winV3r2.BreadApp.state.model.some(function (t) { return t.id === "stale_from_v3r2"; }));
+check("legacy v3r2 key is proactively removed on load", !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r2"));
+
+console.log("\nValid v3r3 state with a stale '{n} text' label is restored + normalized");
 storageData = {};
 storageData[STORAGE_KEY] = JSON.stringify({
-  schema: 3, revision: 2,
+  schema: 3, revision: 3,
   anchors: { wave2_date: "2026-07-31", v016_devnet_date: "2026-07-17", v016_testnet_date: "2026-08-05", circle_announcement_date: "2026-08-12" },
   tasks: [{
     id: "wave2_start", label: "1 PRODUCT: Wave 2 company-wide testing", category: "product",
@@ -462,7 +480,7 @@ storageData[STORAGE_KEY] = JSON.stringify({
 });
 var winV3 = loadApp({}, makeDocument());
 var restored = winV3.BreadApp.state.model.find(function (t) { return t.id === "wave2_start"; });
-check("valid v3r2 state is restored (single persisted task)", winV3.BreadApp.state.model.length === 1 && !!restored);
+check("valid v3r3 state is restored (single persisted task)", winV3.BreadApp.state.model.length === 1 && !!restored);
 check("stale '{n} text' label migrated to '{n}) text'", restored.label === "1) PRODUCT: Wave 2 company-wide testing", restored.label);
 check("stale default_label migrated too", restored.default_label === "1) PRODUCT: Wave 2 company-wide testing", restored.default_label);
 // Reset back to a clean shipped app for the interactive sections below.
@@ -482,7 +500,7 @@ check("dropped task now renders at 2026-08-04", rowHas("1) PRODUCT: Wave 2 decis
 els["view-cal"]._fire("click");
 // Drag a parent -> downstream item-anchored task recomputes.
 var clientBeforeDrag = M.findTask(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).tasks, "client_wallet_done").date;
-fireDragStart("guardian_upgrade_done"); // anchor is testnet 2026-08-05; drop on 2026-08-06 (Thu) -> +1bd
+fireDragStart("guardian_upgrade_done"); // anchor is the v016_testnet task; drop on 2026-08-06 (Thu) sets the offset by business-day distance
 fireDrop("2026-08-06");
 var afterDrag = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
 check("dragged parent guardian_upgrade_done now at 2026-08-06", M.findTask(afterDrag.tasks, "guardian_upgrade_done").date === "2026-08-06");
@@ -597,12 +615,14 @@ var htmlSrc = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 check("title is exactly 'Bread Reverse Launch Calendar'", htmlSrc.indexOf("<title>Bread Reverse Launch Calendar</title>") !== -1);
 check("h1 is exactly 'Bread Reverse Launch Calendar'", htmlSrc.indexOf("<h1>Bread Reverse Launch Calendar</h1>") !== -1);
 check("grouped 'Date anchors' control block present", htmlSrc.indexOf("Date anchors") !== -1 && htmlSrc.indexOf('class="control anchors"') !== -1);
-check("exactly three date-anchor inputs present (Wave 2, testnet, Circle)",
-  htmlSrc.indexOf('id="wave2_date"') !== -1 && htmlSrc.indexOf('id="v016_testnet_date"') !== -1 &&
-  htmlSrc.indexOf('id="circle_announcement_date"') !== -1);
+check("exactly two date-anchor inputs present (v0.16 testnet, Circle)",
+  htmlSrc.indexOf('id="v016_testnet_date"') !== -1 && htmlSrc.indexOf('id="circle_announcement_date"') !== -1);
 check("the v0.16 devnet date is NOT rendered as a control input (past baseline)", htmlSrc.indexOf('id="v016_devnet_date"') === -1);
-check("only three date inputs total in the controls", (htmlSrc.match(/<input type="date"/g) || []).length === 3);
-check("the three shown date inputs are clearly labelled", htmlSrc.indexOf("Wave 2 start") !== -1 && htmlSrc.indexOf("v0.16 testnet") !== -1 && htmlSrc.indexOf("Circle announcement") !== -1);
+check("the Wave 2 start date is NOT rendered as a control input (past baseline)", htmlSrc.indexOf('id="wave2_date"') === -1);
+check("only two date inputs total in the controls", (htmlSrc.match(/<input type="date"/g) || []).length === 2);
+check("the two shown date inputs are clearly labelled", htmlSrc.indexOf("v0.16 testnet") !== -1 && htmlSrc.indexOf("Circle announcement") !== -1);
+check("v0.16 testnet is the first visible date input (before Circle)",
+  htmlSrc.indexOf('id="v016_testnet_date"') < htmlSrc.indexOf('id="circle_announcement_date"'));
 check("no legacy single wave2 input id", htmlSrc.indexOf('id="wave2"') === -1);
 check("no teaser input", htmlSrc.indexOf('id="teaser"') === -1);
 check("no launch input", htmlSrc.indexOf('id="launch"') === -1);
@@ -620,7 +640,7 @@ check("app.js: no legacy DEFAULT_WAVE2 single-anchor usage", appSrc.indexOf("DEF
 check("app.js: no patternClass / decorative pattern usage", appSrc.indexOf("patternClass") === -1 && appSrc.indexOf("pat-cross") === -1);
 check("app.js: no EXT badge markup", appSrc.indexOf(">EXT<") === -1 && appSrc.indexOf('"badge ext"') === -1 && appSrc.indexOf("ext-mark") === -1);
 check("app.js: uses the four date anchors (DATE_ANCHOR_IDS + normalizeAnchors)", appSrc.indexOf("DATE_ANCHOR_IDS") !== -1 && appSrc.indexOf("normalizeAnchors") !== -1);
-check("app.js: drives anchor inputs off CONTROL_ANCHOR_IDS (devnet control hidden)", appSrc.indexOf("CONTROL_ANCHOR_IDS") !== -1);
+check("app.js: drives anchor inputs off CONTROL_ANCHOR_IDS (Wave 2 + devnet controls hidden)", appSrc.indexOf("CONTROL_ANCHOR_IDS") !== -1);
 check("styles.css: details popup is position:fixed (floating)", /\.details\s*\{[^}]*position:\s*fixed/.test(cssSrc));
 check("styles.css: no .badge.ext external cue remains", cssSrc.indexOf(".badge.ext") === -1);
 check("styles.css: no decorative pattern classes remain", ["pat-cross", "pat-vertical", "pat-horizontal", "pat-diagonal", "pat-circle"].every(function (p) { return cssSrc.indexOf(p) === -1; }));

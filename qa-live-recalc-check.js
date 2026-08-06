@@ -2,8 +2,10 @@
  * QA scenario check for Bread Reverse Launch Calendar (wave-based graph model,
  * four date anchors). Documents the exact anchor inputs used in manual
  * verification and asserts business-day recalculation across the anchor graph:
- * the four editable date anchors AND item anchors (downstream chains recompute
- * when a parent moves), and that each date anchor moves ONLY its own subgraph.
+ * the four date anchors (two editable in the top strip -- v0.16 testnet and Circle
+ * -- plus the hidden Wave 2 / devnet past baselines) AND item anchors (downstream
+ * chains recompute when a parent moves), and that each date anchor moves ONLY its
+ * own subgraph.
  * Run: node qa-live-recalc-check.js
  */
 const M = require("./model.js");
@@ -67,7 +69,7 @@ for (const s of scenarios) {
 const FIXED = {
   v016_devnet_date: ["v016_devnet"],
   v016_testnet_date: ["v016_testnet", "guardian_upgrade_done", "client_wallet_done"],
-  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa"],
+  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa", "visual_identity_board"],
 };
 const def = M.recalc({ anchors: D });
 const owned = {};
@@ -88,7 +90,7 @@ M.DATE_ANCHOR_IDS.forEach((movedAnchor) => {
     assertions++;
   });
 });
-console.log(`\nsubgraph independence: each of the four date anchors moves ONLY its dependent subgraph (${SUBGRAPHS.wave2_date.length}/1/3/3 tasks); the other chains stay put`);
+console.log(`\nsubgraph independence: each of the four date anchors moves ONLY its dependent subgraph (${SUBGRAPHS.wave2_date.length}/1/3/4 tasks); the other chains stay put`);
 
 // Item-anchor downstream recompute: move guardian_upgrade_done and confirm
 // client_wallet_done shifts by the same delta, while the Wave 2 chain and the
@@ -111,11 +113,16 @@ const items = M.SHIPPED_TASKS.filter((t) => t.anchor_type === "item_anchor");
 assert(items.some((t) => t.external_dependency) && items.some((t) => !t.external_dependency),
   "external_dependency is a stored flag (item anchors are a mix of external and internal)"); assertions++;
 assert(M.DATE_ANCHOR_IDS.length === 4, "exactly four date anchors in the model"); assertions++;
-assert(M.CONTROL_ANCHOR_IDS.length === 3 && M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1,
-  "three editable control anchors; v0.16 devnet (past baseline) is not a control"); assertions++;
+assert(M.CONTROL_ANCHOR_IDS.length === 2 &&
+  M.CONTROL_ANCHOR_IDS.join(",") === "v016_testnet_date,circle_announcement_date",
+  "exactly two editable control anchors, v0.16 testnet then Circle"); assertions++;
+assert(M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1 && M.CONTROL_ANCHOR_IDS.indexOf("wave2_date") === -1,
+  "Wave 2 start and v0.16 devnet (past baselines) are not controls"); assertions++;
 assert(M.isDateAnchorId("v016_devnet_date") && M.defaultAnchors().v016_devnet_date === "2026-07-17",
   "v016_devnet_date remains a valid, exported date anchor even without a control"); assertions++;
-console.log(`deduced/stored-field check: anchor_type derived for all ${M.SHIPPED_TASKS.length} tasks; external_dependency is a stored semantic flag; four date anchors`);
+assert(M.isDateAnchorId("wave2_date") && M.defaultAnchors().wave2_date === "2026-07-31",
+  "wave2_date remains a valid, exported date anchor even without a control"); assertions++;
+console.log(`deduced/stored-field check: anchor_type derived for all ${M.SHIPPED_TASKS.length} tasks; external_dependency is a stored semantic flag; four date anchors (two editable)`);
 
 // Add / remove: a new task is added with a unique id and resolves; removing a
 // task with dependents re-anchors them to the removed task's anchor (no dangling

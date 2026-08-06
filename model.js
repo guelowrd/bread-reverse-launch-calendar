@@ -10,15 +10,18 @@
  *     anchor (another task's id). Item-anchored tasks recompute when their parent
  *     moves, so a whole dependency chain shifts together.
  *   - Offsets are BUSINESS DAYS (Monday-Friday); weekends are skipped.
- *   - There are FOUR editable date anchors, each rooting its OWN independent
- *     subgraph:
+ *   - There are FOUR date anchors, each rooting its OWN independent subgraph:
  *       * wave2_date               Wave 2 start -> Waves 2/3/4/5 chains, decisions,
- *                                  comms, stores, video (the bulk of the plan)
+ *                                  comms, stores, teaser (the bulk of the plan)
  *       * v016_devnet_date         v0.16 on devnet (standalone)
  *       * v016_testnet_date        v0.16 on testnet -> guardian -> client/wallet
- *       * circle_announcement_date Circle announcement -> website -> waitlist QA
+ *       * circle_announcement_date Circle announcement -> website -> waitlist QA,
+ *                                  visual-identity board
  *     Moving ONE date anchor recomputes only its dependent subgraph; the other
  *     three chains are unaffected. There is no single master anchor any more.
+ *     Two of these anchors (Wave 2 start and v0.16 devnet) are now fixed PAST
+ *     baselines with no editable top control; only v0.16 testnet and Circle
+ *     announcement stay editable in the top strip (see DATE_ANCHORS `control`).
  *
  * This file is environment-agnostic: it runs unchanged in the browser (attaches
  * to window.BreadModel) and in Node (module.exports), so the UI and the Node
@@ -34,11 +37,14 @@
   // shown on the calendar day cell, the shipped default date, and an optional
   // `control` flag. `control: false` keeps the anchor in the model/export and as a
   // valid task anchor, but hides its editable date input from the top control
-  // strip -- used for the v0.16 devnet date, which is a fixed past baseline (the
-  // devnet task is still movable via its offset / drag / re-anchor). The order
-  // here is the order used in the export and in the control strip.
+  // strip -- used for anchors whose date is now a fixed PAST baseline: the v0.16
+  // devnet date and the Wave 2 start date (Wave 2 is in the past). Their tasks are
+  // still movable via offset / drag / re-anchor, and both anchors still resolve,
+  // export, feed the anchor dropdown, show a calendar chip, and round-trip. Only
+  // TWO anchors keep an editable top input: v0.16 testnet then Circle announcement.
+  // The order here is the order used in the export and in the control strip.
   var DATE_ANCHORS = [
-    { id: "wave2_date",               label: "Wave 2 start",        chip: "WAVE 2",  default: "2026-07-31" },                    // Friday
+    { id: "wave2_date",               label: "Wave 2 start",        chip: "WAVE 2",  default: "2026-07-31", control: false },    // Friday (past; no control)
     { id: "v016_devnet_date",         label: "v0.16 devnet",        chip: "DEVNET",  default: "2026-07-17", control: false },    // Friday (past; no control)
     { id: "v016_testnet_date",        label: "v0.16 testnet",       chip: "TESTNET", default: "2026-08-05" },                    // Wednesday
     { id: "circle_announcement_date", label: "Circle announcement", chip: "CIRCLE",  default: "2026-08-12" }                     // Wednesday
@@ -47,8 +53,10 @@
   DATE_ANCHORS.forEach(function (a) { DATE_ANCHOR_BY_ID[a.id] = a; });
   var DATE_ANCHOR_IDS = DATE_ANCHORS.map(function (a) { return a.id; });
   // The subset of date anchors that get an editable input in the top control
-  // strip (all except those marked `control: false`). The model still resolves,
-  // exports, and round-trips ALL four anchors regardless of this list.
+  // strip (all except those marked `control: false`). Currently exactly two --
+  // v0.16 testnet then Circle announcement -- because the Wave 2 start and v0.16
+  // devnet dates are fixed past baselines. The model still resolves, exports, and
+  // round-trips ALL four anchors regardless of this list.
   var CONTROL_ANCHOR_IDS = DATE_ANCHORS.filter(function (a) { return a.control !== false; }).map(function (a) { return a.id; });
 
   // Canonical fallback date anchor: brand-new tasks and orphaned dependents anchor
@@ -114,22 +122,22 @@
     { id: "wave2_stores_submit",    label: "2) STORES: submit post-Wave-2 build",             category: "stores",  anchor_id: "wave2_feedback_changes",   offset:  0, external: false },
     { id: "wave2_stores_live",      label: "2) STORES: post-Wave-2 build live",               category: "stores",  anchor_id: "wave2_stores_submit",      offset:  1, external: true  },
     { id: "guardian_upgrade_done",  label: "0) Guardian upgrade done",                        category: "v016",    anchor_id: "v016_testnet",             offset: -2, external: true  },
-    { id: "v016_testnet",           label: "0) v0.16 on testnet",                             category: "v016",    anchor_id: "v016_testnet_date",        offset:  0, external: true  },
+    { id: "v016_testnet",           label: "0) v0.16 on testnet",                             category: "v016",    anchor_id: "v016_testnet_date",        offset:  8, external: true  },
     { id: "client_wallet_done",     label: "0) Client/wallet/Epoch upgrade done",             category: "v016",    anchor_id: "guardian_upgrade_done",    offset:  4, external: true  },
     { id: "wave3_decision",         label: "1) PRODUCT: Wave 3 decision",                     category: "product", anchor_id: "wave3_start",              offset: -1, external: false },
-    { id: "wave3_recruiting_ready", label: "6) COMMS: Wave 3 tester pack ready",              category: "comms",   anchor_id: "wave3_start",              offset: -1, external: false },
-    { id: "wave3_start",            label: "1) PRODUCT: Wave 3 trusted-network testing",      category: "product", anchor_id: "wave2_start",              offset:  6, external: false },
+    { id: "wave3_recruiting_ready", label: "6) COMMS: Wave 3 tester pack ready",              category: "comms",   anchor_id: "wave3_start",              offset: -2, external: false },
+    { id: "wave3_start",            label: "1) PRODUCT: Wave 3 trusted-network testing",      category: "product", anchor_id: "wave2_start",              offset: 16, external: false },
     { id: "wave3_feedback_changes", label: "1) PRODUCT: Wave 3 changes applied",              category: "product", anchor_id: "wave3_start",              offset:  3, external: false },
     { id: "wave3_stores_submit",    label: "2) STORES: submit post-Wave-3 build",             category: "stores",  anchor_id: "wave3_feedback_changes",   offset:  0, external: false },
     { id: "wave3_stores_live",      label: "2) STORES: post-Wave-3 build live",               category: "stores",  anchor_id: "wave3_stores_submit",      offset:  1, external: true  },
     { id: "circle_announcement",    label: "7) PUBLIC: Circle announcement",                  category: "public",  anchor_id: "circle_announcement_date", offset:  0, external: true  },
     { id: "waitlist_qa",            label: "4) WAITLIST: form + CRM flow ready",              category: "landing", anchor_id: "website_out",              offset: -1, external: false },
     { id: "website_out",            label: "4) WEBSITE: new website + Bread waitlist live",    category: "landing", anchor_id: "circle_announcement",      offset:  0, external: true  },
-    { id: "visual_identity_board",  label: "3) VISUAL IDENTITY: board ready",                 category: "video",   anchor_id: "wave4_start",              offset: -7, external: false },
-    { id: "teaser_final",           label: "3) VIDEO: teaser final",                          category: "video",   anchor_id: "wave4_start",              offset: -1, external: false },
-    { id: "wave4_comms_ready",      label: "6) COMMS: Wave 4 channels + waitlist CTA ready",   category: "comms",   anchor_id: "wave4_start",              offset: -1, external: false },
+    { id: "visual_identity_board",  label: "3) VISUAL IDENTITY: board ready",                 category: "video",   anchor_id: "website_out",              offset: -2, external: false },
+    { id: "teaser_final",           label: "3) VIDEO: teaser final",                          category: "video",   anchor_id: "wave4_start",              offset: -2, external: false },
+    { id: "wave4_comms_ready",      label: "6) COMMS: Wave 4 channels + waitlist CTA ready",   category: "comms",   anchor_id: "wave4_start",              offset: -2, external: false },
     { id: "wave4_decision",         label: "1) PRODUCT: Wave 4 decision",                     category: "product", anchor_id: "wave4_start",              offset: -1, external: false },
-    { id: "wave4_start",            label: "7) PUBLIC: Wave 4 teaser + waitlist push",        category: "public",  anchor_id: "wave3_start",              offset:  6, external: false },
+    { id: "wave4_start",            label: "7) PUBLIC: Wave 4 teaser + waitlist push",        category: "public",  anchor_id: "wave3_start",              offset:  8, external: false },
     { id: "wave4_feedback_changes", label: "1) PRODUCT: Wave 4 changes applied",              category: "product", anchor_id: "wave4_start",              offset:  3, external: false },
     { id: "wave4_stores_submit",    label: "2) STORES: submit post-Wave-4 build",             category: "stores",  anchor_id: "wave4_feedback_changes",   offset:  0, external: false },
     { id: "wave4_stores_live",      label: "2) STORES: post-Wave-4 build live",               category: "stores",  anchor_id: "wave4_stores_submit",      offset:  1, external: true  },

@@ -56,32 +56,32 @@ var EXPECT = {
   wave2_feedback_changes: "2026-08-05",
   wave2_stores_submit: "2026-08-05",
   wave2_stores_live: "2026-08-06",
-  guardian_upgrade_done: "2026-08-03",
-  v016_testnet: "2026-08-05",
-  client_wallet_done: "2026-08-07",
-  wave3_decision: "2026-08-07",
-  wave3_recruiting_ready: "2026-08-07",
-  wave3_start: "2026-08-10",
-  wave3_feedback_changes: "2026-08-13",
-  wave3_stores_submit: "2026-08-13",
-  wave3_stores_live: "2026-08-14",
+  guardian_upgrade_done: "2026-08-13",
+  v016_testnet: "2026-08-17",
+  client_wallet_done: "2026-08-19",
+  wave3_decision: "2026-08-21",
+  wave3_recruiting_ready: "2026-08-20",
+  wave3_start: "2026-08-24",
+  wave3_feedback_changes: "2026-08-27",
+  wave3_stores_submit: "2026-08-27",
+  wave3_stores_live: "2026-08-28",
   circle_announcement: "2026-08-12",
   waitlist_qa: "2026-08-11",
   website_out: "2026-08-12",
-  visual_identity_board: "2026-08-07",
-  teaser_final: "2026-08-17",
-  wave4_comms_ready: "2026-08-17",
-  wave4_decision: "2026-08-17",
-  wave4_start: "2026-08-18",
-  wave4_feedback_changes: "2026-08-21",
-  wave4_stores_submit: "2026-08-21",
-  wave4_stores_live: "2026-08-24",
-  wave5_comms_ready: "2026-08-25",
-  wave5_decision: "2026-08-25",
-  wave5_start: "2026-08-26",
-  wave5_feedback_changes: "2026-08-31",
-  wave5_stores_submit: "2026-08-31",
-  wave5_stores_live: "2026-09-01"
+  visual_identity_board: "2026-08-10",
+  teaser_final: "2026-09-01",
+  wave4_comms_ready: "2026-09-01",
+  wave4_decision: "2026-09-02",
+  wave4_start: "2026-09-03",
+  wave4_feedback_changes: "2026-09-08",
+  wave4_stores_submit: "2026-09-08",
+  wave4_stores_live: "2026-09-09",
+  wave5_comms_ready: "2026-09-10",
+  wave5_decision: "2026-09-10",
+  wave5_start: "2026-09-11",
+  wave5_feedback_changes: "2026-09-16",
+  wave5_stores_submit: "2026-09-16",
+  wave5_stores_live: "2026-09-17"
 };
 
 // Independent subgraph membership per date anchor (the tasks that MUST move when
@@ -90,7 +90,7 @@ var EXPECT = {
 var FIXED_SUBGRAPHS = {
   v016_devnet_date: ["v016_devnet"],
   v016_testnet_date: ["v016_testnet", "guardian_upgrade_done", "client_wallet_done"],
-  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa"]
+  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa", "visual_identity_board"]
 };
 
 console.log("Test 0: shipped defaults match the authoritative v3 JSON (baseline-model.json) exactly");
@@ -216,7 +216,7 @@ var union = [];
 M.DATE_ANCHOR_IDS.forEach(function (aid) { union = union.concat(SUBGRAPHS[aid]); });
 check("subgraphs partition all 33 tasks (disjoint + complete)",
   union.length === TASK_COUNT && new Set(union).size === TASK_COUNT);
-check("wave2_date subgraph has 26 tasks", SUBGRAPHS.wave2_date.length === 26, "got " + SUBGRAPHS.wave2_date.length);
+check("wave2_date subgraph has 25 tasks", SUBGRAPHS.wave2_date.length === 25, "got " + SUBGRAPHS.wave2_date.length);
 M.DATE_ANCHOR_IDS.forEach(function (movedAnchor) {
   var members = {};
   SUBGRAPHS[movedAnchor].forEach(function (id) { members[id] = true; });
@@ -248,16 +248,17 @@ check("moving v0.16 devnet moves ONLY v016_devnet",
 console.log("\nTest 7: forward references resolve (anchor defined later in the array)");
 check("wave2_decision resolves through a forward reference (anchors wave2_start)", byId(base, "wave2_decision").date === EXPECT.wave2_decision);
 check("guardian_upgrade_done resolves through a forward reference", byId(base, "guardian_upgrade_done").date === EXPECT.guardian_upgrade_done);
-check("visual_identity_board resolves through a forward reference", byId(base, "visual_identity_board").date === EXPECT.visual_identity_board);
+check("teaser_final resolves through a forward reference (anchors wave4_start)", byId(base, "teaser_final").date === EXPECT.teaser_final);
+check("visual_identity_board resolves via its website_out anchor", byId(base, "visual_identity_board").date === EXPECT.visual_identity_board && byId(base, "visual_identity_board").anchor_id === "website_out");
 var decIdx = M.SHIPPED_TASKS.findIndex(function (t) { return t.id === "wave2_decision"; });
 var startIdx = M.SHIPPED_TASKS.findIndex(function (t) { return t.id === "wave2_start"; });
 check("wave2_decision is authored BEFORE its anchor wave2_start (a true forward ref)", decIdx < startIdx);
 
 console.log("\nTest 8: v0.16 chain resolves through the testnet date anchor + item anchors");
 check("v016_devnet = 2026-07-17 (own date anchor)", byId(base, "v016_devnet").date === "2026-07-17" && byId(base, "v016_devnet").anchor_id === "v016_devnet_date");
-check("v016_testnet = 2026-08-05 (own date anchor)", byId(base, "v016_testnet").date === "2026-08-05" && byId(base, "v016_testnet").anchor_id === "v016_testnet_date");
-check("guardian_upgrade_done = 2026-08-03 (testnet -2bd)", byId(base, "guardian_upgrade_done").date === "2026-08-03" && byId(base, "guardian_upgrade_done").anchor_id === "v016_testnet");
-check("client_wallet_done = 2026-08-07 (guardian +4bd)", byId(base, "client_wallet_done").date === "2026-08-07");
+check("v016_testnet = 2026-08-17 (testnet date +8bd)", byId(base, "v016_testnet").date === "2026-08-17" && byId(base, "v016_testnet").anchor_id === "v016_testnet_date" && byId(base, "v016_testnet").offset_business_days === 8);
+check("guardian_upgrade_done = 2026-08-13 (testnet -2bd)", byId(base, "guardian_upgrade_done").date === "2026-08-13" && byId(base, "guardian_upgrade_done").anchor_id === "v016_testnet");
+check("client_wallet_done = 2026-08-19 (guardian +4bd)", byId(base, "client_wallet_done").date === "2026-08-19");
 
 console.log("\nTest 9: cycle detection");
 var mc = M.defaultModel();
@@ -374,9 +375,9 @@ var labels = base.tasks.map(function (t) { return t.label; });
 // Wave narrative anchoring spot checks (new model).
 check("Wave 2 company-wide testing is the wave2_date anchor",
   byId(base, "wave2_start").anchor_type === "date_anchor" && byId(base, "wave2_start").anchor_id === "wave2_date");
-check("Wave 3/4/5 each start +6bd from the prior wave start",
-  byId(base, "wave3_start").anchor_id === "wave2_start" && byId(base, "wave3_start").offset_business_days === 6 &&
-  byId(base, "wave4_start").anchor_id === "wave3_start" && byId(base, "wave4_start").offset_business_days === 6 &&
+check("Wave 3/4/5 chain off the prior wave start with the shipped offsets (16/8/6bd)",
+  byId(base, "wave3_start").anchor_id === "wave2_start" && byId(base, "wave3_start").offset_business_days === 16 &&
+  byId(base, "wave4_start").anchor_id === "wave3_start" && byId(base, "wave4_start").offset_business_days === 8 &&
   byId(base, "wave5_start").anchor_id === "wave4_start" && byId(base, "wave5_start").offset_business_days === 6);
 check("waitlist QA anchors website_out -1bd", byId(base, "waitlist_qa").anchor_id === "website_out" && byId(base, "waitlist_qa").offset_business_days === -1);
 check("Circle announcement is a fixed date anchor (Public moment)",
@@ -481,12 +482,13 @@ console.log("\nTest 20: v0.16 devnet date is a non-control anchor but stays in t
 // date input. The v0.16 devnet date is a fixed past baseline: no control, but it
 // is still a valid anchor, still exported, and its task is still movable.
 check("DATE_ANCHOR_IDS still has all four anchors", M.DATE_ANCHOR_IDS.length === 4);
-check("CONTROL_ANCHOR_IDS has exactly three (devnet excluded)",
-  M.CONTROL_ANCHOR_IDS.length === 3 &&
-  M.CONTROL_ANCHOR_IDS.join(",") === "wave2_date,v016_testnet_date,circle_announcement_date");
+check("CONTROL_ANCHOR_IDS has exactly two (v0.16 testnet then Circle; wave2 + devnet excluded)",
+  M.CONTROL_ANCHOR_IDS.length === 2 &&
+  M.CONTROL_ANCHOR_IDS.join(",") === "v016_testnet_date,circle_announcement_date");
+check("v016_testnet_date is the FIRST control anchor", M.CONTROL_ANCHOR_IDS[0] === "v016_testnet_date");
 check("v016_devnet_date is NOT a control anchor", M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1);
-check("the other three anchors ARE control anchors",
-  ["wave2_date", "v016_testnet_date", "circle_announcement_date"].every(function (id) { return M.CONTROL_ANCHOR_IDS.indexOf(id) !== -1; }));
+check("both remaining control anchors ARE control anchors",
+  ["v016_testnet_date", "circle_announcement_date"].every(function (id) { return M.CONTROL_ANCHOR_IDS.indexOf(id) !== -1; }));
 check("v016_devnet_date is still a valid date anchor id", M.isDateAnchorId("v016_devnet_date") === true);
 check("devnet task still present + date-anchored to v016_devnet_date",
   byId(base, "v016_devnet").anchor_type === "date_anchor" && byId(base, "v016_devnet").anchor_id === "v016_devnet_date");
@@ -505,6 +507,27 @@ check("moving the devnet task does not disturb other chains", byId(rDev, "wave2_
 var rDevAnchor = M.recalc({ anchors: Object.assign(M.defaultAnchors(), { v016_devnet_date: "2026-07-10" }) });
 check("devnet anchor still drives only the devnet task when set via the model",
   byId(rDevAnchor, "v016_devnet").date === "2026-07-10" && byId(rDevAnchor, "wave2_start").date === EXPECT.wave2_start);
+
+console.log("\nTest 21: wave2_date is now a non-control anchor but stays in the model/export/resolution");
+// Wave 2 is in the past, so its editable top input is hidden -- the SAME pattern as
+// the devnet anchor. It must still resolve, export, seed its subgraph, and round-trip.
+check("wave2_date is NOT a control anchor", M.CONTROL_ANCHOR_IDS.indexOf("wave2_date") === -1);
+check("wave2_date is still a valid date anchor id", M.isDateAnchorId("wave2_date") === true);
+check("wave2_date is still in DATE_ANCHOR_IDS (export order unchanged)",
+  M.DATE_ANCHOR_IDS.indexOf("wave2_date") === 0);
+check("wave2_start still date-anchored to wave2_date and resolves to 2026-07-31",
+  byId(base, "wave2_start").anchor_type === "date_anchor" && byId(base, "wave2_start").anchor_id === "wave2_date" &&
+  byId(base, "wave2_start").date === EXPECT.wave2_start);
+var exW2 = M.exportModel(M.defaultAnchors(), M.defaultModel());
+check("export still round-trips the wave2_date anchor (2026-07-31)", exW2.wave2_date === "2026-07-31");
+check("defaultAnchors still includes the wave2 baseline", M.defaultAnchors().wave2_date === "2026-07-31");
+check("WAVE2_ANCHOR fallback id still resolves as a date anchor", M.isDateAnchorId(M.WAVE2_ANCHOR) && M.WAVE2_ANCHOR === "wave2_date");
+// Setting the wave2 anchor programmatically (e.g. import) still moves ONLY its subgraph.
+var rW2 = M.recalc({ anchors: Object.assign(M.defaultAnchors(), { wave2_date: "2026-08-07" }) }); // +5bd
+check("wave2 anchor still drives its subgraph when set via the model",
+  byId(rW2, "wave2_start").date === "2026-08-07" &&
+  byId(rW2, "v016_testnet").date === EXPECT.v016_testnet &&
+  byId(rW2, "circle_announcement").date === EXPECT.circle_announcement);
 
 console.log("\n=== " + pass + " passed, " + fail + " failed ===");
 process.exit(fail === 0 ? 0 : 1);

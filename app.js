@@ -3,15 +3,16 @@
   "use strict";
   var M = window.BreadModel;
   // Versioned storage key + explicit model revision. The v3 SCHEMA is unchanged,
-  // but the shipped structure/defaults changed (four date anchors, 33 tasks), so
-  // a new storage KEY plus a REVISION stamp guarantees that stale schema-3 state
-  // from the previous release cannot mask or shadow the new shipped defaults: the
-  // old key is a different bucket (proactively removed on load) and a payload with
-  // the wrong revision under the new key is discarded.
-  var STORAGE_KEY = "bread-calendar-model-v3r2";
+  // but the shipped DEFAULTS changed again (new task offsets/anchors, and Wave 2 is
+  // now a hidden past baseline), so a new storage KEY plus a bumped REVISION stamp
+  // guarantees that stale schema-3 state from the previous release cannot mask or
+  // shadow the new shipped defaults: the old keys are different buckets (proactively
+  // removed on load) and a payload with the wrong revision under the new key is
+  // discarded. Exported JSON stays version 3; only this persistence revision moves.
+  var STORAGE_KEY = "bread-calendar-model-v3r3";
   var STORAGE_SCHEMA = 3;
-  var STORAGE_REVISION = 2;
-  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v3", "bread-calendar-model-v2", "bread-calendar-model"];
+  var STORAGE_REVISION = 3;
+  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v3r2", "bread-calendar-model-v3", "bread-calendar-model-v2", "bread-calendar-model"];
 
   // ---- Persistence (localStorage) -------------------------------------------
   // The app is a static local page: source files cannot be written from the
@@ -91,9 +92,10 @@
     tableview: document.getElementById("tableview")
   };
   // One date input per CONTROL date anchor, keyed by anchor id (the input's id in
-  // index.html is exactly the anchor id). Anchors marked non-control (e.g. the
-  // fixed past v0.16 devnet date) have no input here; they stay in the model,
-  // export, and task anchor dropdown, and their task is still movable.
+  // index.html is exactly the anchor id). Anchors marked non-control (the fixed past
+  // Wave 2 start and v0.16 devnet dates) have no input here; they stay in the model,
+  // export, and task anchor dropdown, still show a calendar chip, and their tasks
+  // remain movable. Only two inputs remain: v0.16 testnet then Circle announcement.
   el.anchorInputs = {};
   M.CONTROL_ANCHOR_IDS.forEach(function (id) { el.anchorInputs[id] = document.getElementById(id); });
 

@@ -1,21 +1,23 @@
 # Bread Reverse Launch Calendar verification
 
-Verification date: 2026-07-30 (four-anchor v3 update + UI streamline) UTC
+Verification date: 2026-08-06 (defaults + active-anchors update) UTC
 
-Scope: the wave-based **v3** artifact in this directory, updated to **four date
-anchors** and **33 tasks**, plus a restrained dashboard UI cleanup. The four
-anchors are **`wave2_date` (Wave 2 start, 2026-07-31)**,
-**`v016_devnet_date` (2026-07-17)**, **`v016_testnet_date` (2026-08-05)**, and
-**`circle_announcement_date` (2026-08-12)**. Each anchor roots its **own**
-subgraph; moving one recomputes only its dependents. **Three** anchors are exposed
-as editable inputs (Wave 2 start, v0.16 testnet, Circle announcement); the **v0.16
-devnet** date is a fixed **past** baseline that stays in the model/export and as
-the devnet task's anchor but has **no** editable control (the devnet task is still
-movable via its offset / drag / re-anchor). The model remains an anchor
-**graph** (stable ids, date + item anchors, forward references, downstream
-recomputation, cycle/invalid detection) with drag/drop, click-to-highlight,
-editable rows, add/remove, user-chosen defaults with versioned+revisioned
-`localStorage`, and JSON export.
+Scope: the wave-based **v3** artifact in this directory, updated to new shipped
+defaults (seven task definitions changed: `teaser_final`, `v016_testnet`,
+`visual_identity_board`, `wave3_recruiting_ready`, `wave3_start`,
+`wave4_comms_ready`, `wave4_start`) and a narrower top control strip. There are
+still **four date anchors** and **33 tasks**: **`wave2_date` (Wave 2 start,
+2026-07-31)**, **`v016_devnet_date` (2026-07-17)**, **`v016_testnet_date`
+(2026-08-05)**, and **`circle_announcement_date` (2026-08-12)**. Each anchor roots
+its **own** subgraph; moving one recomputes only its dependents. Only **two**
+anchors are exposed as editable top inputs, in order: **v0.16 testnet**, then
+**Circle announcement**. The **Wave 2 start** and **v0.16 devnet** dates are fixed
+**past** baselines that stay in the model/export, the anchor dropdown, and the
+calendar chips but have **no** editable control (their tasks are still movable via
+offset / drag / re-anchor). The model remains an anchor **graph** (stable ids,
+date + item anchors, forward references, downstream recomputation, cycle/invalid
+detection) with drag/drop, click-to-highlight, editable rows, add/remove,
+user-chosen defaults with versioned+revisioned `localStorage`, and JSON export.
 
 Preserved from before and re-verified: business-day math, item anchors, negative
 offsets, forward references, category colours, `default_*` reset, the floating
@@ -25,22 +27,25 @@ numbering, and stale-`localStorage` label normalization (`n text` → `n) text`)
 
 Changed in this update:
 
-- **Four date anchors** replace the single `wave2_date` master. `wave3/4/5_start`
-  each anchor the prior wave start `+6bd`; the v0.16 testnet chain and the
-  Circle/website/waitlist chain root at their own date anchors. Added
-  `wave3_decision`, `wave4_decision`, `wave5_decision`; removed `wave6_start`
-  (33 tasks total).
-- **UI streamline:** removed the `EXT` badge and the heavy dashed external border
-  and the decorative hatch/stripe/circle patterns. Category is now conveyed by a
-  soft tint + a consistent 3px left accent + a quiet neutral outline; strong
-  outlines are reserved for interaction state (selected/anchor/focus). Anchor day
-  cells carry a quiet chip (`WAVE 2` / `DEVNET` / `TESTNET` / `CIRCLE`). The four
-  anchor inputs are grouped and labelled.
-- **Storage migration:** the v3 schema is unchanged but the structure/defaults
-  changed, so a new **storage key** (`bread-calendar-model-v3r2`) plus an explicit
-  model **revision** (`revision: 2`) is used, with proactive cleanup of the prior
-  `bread-calendar-model-v3` / `-v2` / `bread-calendar-model` keys so stale
-  prior-release state cannot mask the new defaults.
+- **New shipped defaults** for seven tasks: `v016_testnet` now `+8bd` off its date
+  anchor; `wave3_start` `+16bd` (was `+6bd`) off `wave2_start`; `wave4_start`
+  `+8bd` (was `+6bd`) off `wave3_start`; `wave3_recruiting_ready`, `teaser_final`,
+  and `wave4_comms_ready` all `-2bd`; and `visual_identity_board` re-anchored from
+  `wave4_start` (`-7bd`) to `website_out` (`-2bd`), moving it into the Circle
+  subgraph. `baseline-model.json` is byte-for-byte the authoritative JSON and
+  `verify.js` Test 0 re-asserts full parity.
+- **Narrower control strip:** Wave 2 has passed, so `wave2_date` joins
+  `v016_devnet_date` as a hidden past baseline — its editable top input is removed
+  (same `control: false` pattern as devnet). The top strip now has exactly two
+  inputs, in order: **v0.16 testnet**, then **Circle announcement**. `wave2_date`
+  still resolves, exports, seeds the anchor dropdown, shows its `WAVE 2` chip, and
+  round-trips. Anchor day cells still carry chips (`WAVE 2` / `DEVNET` / `TESTNET`
+  / `CIRCLE`).
+- **Storage migration:** the v3 schema and export version are unchanged, but the
+  shipped defaults changed, so a new **storage key** (`bread-calendar-model-v3r3`)
+  plus a bumped model **revision** (`revision: 3`) is used, with proactive cleanup
+  of the prior `bread-calendar-model-v3r2` / `-v3` / `-v2` / `bread-calendar-model`
+  keys so stale prior-release state cannot mask the new defaults.
 
 `anchor_type` is still **derived** from `anchor_id`; `external_dependency` remains
 a **stored** semantic flag, preserved through edit/reset/import/export.
@@ -76,10 +81,10 @@ section, and `qa-dom` per-anchor section):
 
 | anchor moved | tasks that shift | tasks that stay put |
 |---|---|---|
-| `wave2_date` | the 26-task Wave 2 → Waves 3/4/5 chain | v0.16 devnet, v0.16 testnet chain, Circle/website/waitlist |
-| `v016_devnet_date` | `v016_devnet` only | everything else |
+| `wave2_date` (hidden; model-level) | the 25-task Wave 2 → Waves 3/4/5 chain | v0.16 devnet, v0.16 testnet chain, Circle/website/waitlist/visual-identity |
+| `v016_devnet_date` (hidden; model-level) | `v016_devnet` only | everything else |
 | `v016_testnet_date` | `v016_testnet`, `guardian_upgrade_done`, `client_wallet_done` | everything else |
-| `circle_announcement_date` | `circle_announcement`, `website_out`, `waitlist_qa` | everything else |
+| `circle_announcement_date` | `circle_announcement`, `website_out`, `waitlist_qa`, `visual_identity_board` | everything else |
 
 The four subgraphs are a **disjoint partition** of all 33 tasks (verified).
 
@@ -88,11 +93,14 @@ The four subgraphs are a **disjoint partition** of all 33 tasks (verified).
 Exercised through the shared model and the real `app.js` render/event path via the
 QA scripts.
 
-| Scenario | wave2_date | Observed Wave 2 start row | Observed Wave 5 store-live row | Result |
+The two editable inputs are v0.16 testnet and Circle; the QA DOM scenarios drive
+the visible **v0.16 testnet** control and confirm only its chain moves:
+
+| Scenario | v016_testnet_date | Observed v0.16 testnet row | Observed client/wallet row | Result |
 |---|---|---|---|---|
-| Default anchors | 2026-07-31 | `1) PRODUCT: Wave 2 company-wide testing` → 2026-07-31 | `2) STORES: post-Wave-5 build live` → 2026-09-01 | PASS |
-| Wave 2 moved +5 bd | 2026-08-07 | Wave 2 start → 2026-08-07 | Wave 5 store-live → 2026-09-08 | PASS |
-| Wave 2 moved earlier | 2026-07-20 | Wave 2 start → 2026-07-20 | Wave 5 store-live → 2026-08-24 | PASS |
+| Default anchors | 2026-08-05 | `0) v0.16 on testnet` → 2026-08-17 | `0) Client/wallet/Epoch upgrade done` → 2026-08-19 | PASS |
+| Testnet moved +5 bd | 2026-08-12 | v0.16 testnet → 2026-08-24 | client/wallet → 2026-08-26 | PASS |
+| Testnet moved earlier | 2026-07-29 | v0.16 testnet → 2026-08-10 | client/wallet → 2026-08-12 | PASS |
 
 Graph-specific observations:
 
@@ -103,18 +111,19 @@ Graph-specific observations:
   names a real task (`verify.js` Test 19).
 - **Narrative ordering:** `5) SUPPORT: intake workflow ready` (2026-07-30) and
   `0) v0.16 on devnet` (2026-07-17) both land before Wave 2 start (2026-07-31);
-  Wave 3 (2026-08-10) is `wave2_start +6bd`; Circle (2026-08-12) precedes/aligns
+  Wave 3 (2026-08-24) is `wave2_start +16bd`; Circle (2026-08-12) precedes/aligns
   the website go-live; waitlist QA is `website_out -1bd`; waves ascend
   Wave 2 < Wave 3 < Wave 4 < Wave 5.
-- **Item-anchor chain (default anchors):** `0) v0.16 on testnet` 2026-08-05 →
-  `0) Guardian upgrade done` 2026-08-03 (`-2bd`, a **forward reference** — guardian
-  is authored before testnet) → `0) Client/wallet/Epoch upgrade done` 2026-08-07
-  (`+4bd`).
+- **Item-anchor chain (default anchors):** `0) v0.16 on testnet` 2026-08-17
+  (testnet date `+8bd`) → `0) Guardian upgrade done` 2026-08-13 (`-2bd`, a
+  **forward reference** — guardian is authored before testnet) →
+  `0) Client/wallet/Epoch upgrade done` 2026-08-19 (`+4bd`).
 - **Downstream recompute:** editing/dragging a parent by ±N business days shifts
   its descendants by ±N business days; sibling chains are unaffected; `moved`
   flags are set on the shifted rows.
 - **Independent anchors:** moving `circle_announcement_date +5bd` shifts only
-  `circle_announcement`, `website_out`, `waitlist_qa`; the Wave 2 and v0.16 chains
+  `circle_announcement`, `website_out`, `waitlist_qa`, `visual_identity_board`; the
+  Wave 2 and v0.16 chains
   are unchanged. Moving `v016_devnet_date` shifts only `v016_devnet`.
 - **Negative offsets:** e.g. `wave2_decision` at `wave2_start -1 bd` = 2026-07-30;
   editing it to `-5 bd` = 2026-07-24; guardian at `-2 bd` off testnet.
@@ -165,13 +174,15 @@ Graph-specific observations:
 
 - **Fresh state** (no persisted model) → the full shipped 33-task model and the
   four default anchor dates.
+- **Prior-release v3r2 state** under `bread-calendar-model-v3r2` is **ignored** and
+  the key is **removed** on load.
 - **Prior-release single-anchor v3 state** under `bread-calendar-model-v3` is
   **ignored** (no `wave6` task leaks in) and the key is **removed** on load.
 - **Pre-wave (v2) state** under `bread-calendar-model-v2` is **ignored** and the
   key is **removed** on load.
-- **Wrong-revision** payload under the current key (`revision !== 2`) is
+- **Wrong-revision** payload under the current key (`revision !== 3`) is
   **discarded** → shipped defaults.
-- **Valid v3r2 state** is restored; a stale `{n} text` label in it is migrated to
+- **Valid v3r3 state** is restored; a stale `{n} text` label in it is migrated to
   `{n}) text` (both `label` and `default_label`).
 
 Verified in `verify-dom.js` (fresh / stale-v3 / stale-v2 / wrong-revision /
@@ -208,11 +219,11 @@ node --check model.js app.js verify.js verify-dom.js qa-live-recalc-check.js qa-
 
 Observed command results:
 
-- `node verify.js` → `=== 830 passed, 0 failed ===` (exit 0)
-- `node verify-dom.js` → `=== 224 passed, 0 failed ===` (exit 0)
-- `node qa-live-recalc-check.js` → `PASS: 391 QA scenario assertions passed.` (exit 0)
+- `node verify.js` → `=== 840 passed, 0 failed ===` (exit 0)
+- `node verify-dom.js` → `=== 231 passed, 0 failed ===` (exit 0)
+- `node qa-live-recalc-check.js` → `PASS: 393 QA scenario assertions passed.` (exit 0)
 - `node qa-dom-live-recalc-check.js` → `PASS: 73 DOM/live-render QA assertions passed.` (exit 0)
-- `node --check ...` → exit 0 for every JS file.
+- `node --check ...` → exit 0 for every JS file (including `tools/gen-preview.js`).
 
 ## Feature coverage map (requested verification → tests)
 
@@ -284,12 +295,12 @@ Observed command results:
 ## Local/static behavior
 
 - `index.html` references only relative local files (`styles.css`, `model.js`,
-  `app.js`); three grouped date inputs (`#wave2_date`, `#v016_testnet_date`,
-  `#circle_announcement_date`) drive their subgraphs. The v0.16 devnet date is a
-  fixed past baseline with **no** control input, but stays in the model/export and
-  as the devnet task's anchor.
+  `app.js`); two grouped date inputs (`#v016_testnet_date`, then
+  `#circle_announcement_date`) drive their subgraphs. The Wave 2 start and v0.16
+  devnet dates are fixed past baselines with **no** control input, but stay in the
+  model/export and as their tasks' anchors.
 - User edits and chosen defaults persist under `localStorage` key
-  `bread-calendar-model-v3r2` (`schema: 3`, `revision: 2`); prior-release keys are
+  `bread-calendar-model-v3r3` (`schema: 3`, `revision: 3`); prior-release keys are
   cleared on load; `Restore shipped defaults` or clearing site data returns to the
   shipped 33-task model. Nothing is written to disk except the JSON the user
   explicitly exports.

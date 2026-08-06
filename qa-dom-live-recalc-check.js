@@ -1,10 +1,11 @@
 /*
  * QA DOM scenario check for Bread Reverse Launch Calendar (wave-based v3, four
  * date anchors). Drives the real app.js render/event path with a tiny DOM shim to
- * verify live recalculation off the four editable date anchors (each moving only
- * its own subgraph), item-anchor downstream recompute, drag/drop, click-highlight,
- * the legend category filter, the streamlined (no-EXT-badge) card treatment, and
- * add/remove.
+ * verify live recalculation off the two editable top date anchors (v0.16 testnet
+ * then Circle announcement; the Wave 2 start and v0.16 devnet dates are hidden past
+ * baselines), each moving only its own subgraph, plus item-anchor downstream
+ * recompute, drag/drop, click-highlight, the legend category filter, the
+ * streamlined (no-EXT-badge) card treatment, and add/remove.
  * Run: node qa-dom-live-recalc-check.js
  */
 const fs = require("fs");
@@ -13,7 +14,7 @@ const vm = require("vm");
 const M = require("./model.js");
 
 const TASK_COUNT = 33;
-const STORAGE_KEY = "bread-calendar-model-v3r2";
+const STORAGE_KEY = "bread-calendar-model-v3r3";
 
 function makeEl(id) {
   const listeners = {};
@@ -31,9 +32,10 @@ function makeEl(id) {
 }
 
 const els = {};
-// v016_devnet_date has no control input (fixed past baseline), so it is omitted
-// here to mirror the real DOM (getElementById returns undefined).
-["wave2_date", "v016_testnet_date", "circle_announcement_date",
+// wave2_date and v016_devnet_date have no control input (fixed past baselines), so
+// they are omitted here to mirror the real DOM (getElementById returns undefined).
+// Only v016_testnet_date and circle_announcement_date have editable inputs.
+["v016_testnet_date", "circle_announcement_date",
  "reset", "add-task", "make-defaults", "restore-shipped", "export",
  "view-cal", "view-table", "warnings", "legend", "details", "calendar", "tableview"]
   .forEach((id) => { const e = makeEl(id); e.classList._owner = e; els[id] = e; });
@@ -85,38 +87,40 @@ function firePillClick(taskId) {
   } });
 }
 
-// Moving the Wave 2 date moves the Wave 2 subgraph (Wave 2 start + the Waves
-// 3/4/5 chains). Verify Wave 2 start and a deep Wave 5 task through the UI.
-function report(name, wave2) {
-  setAnchor("wave2_date", wave2);
-  const exp = M.recalc({ anchors: Object.assign(M.defaultAnchors(), { wave2_date: wave2 }), tasks: M.defaultModel() });
-  const expWave2 = M.findTask(exp.tasks, "wave2_start").date;
-  const expWave5 = M.findTask(exp.tasks, "wave5_stores_live").date;
-  assert(rowHas("1) PRODUCT: Wave 2 company-wide testing", expWave2), `${name}: Wave 2 start row did not render ${expWave2}`);
-  assert(rowHas("2) STORES: post-Wave-5 build live", expWave5), `${name}: Wave 5 store-live row did not render ${expWave5}`);
-  console.log(`${name}: wave2=${wave2} -> Wave 2 start ${expWave2}, Wave 5 store-live ${expWave5}`);
+// Moving the (visible) v0.16 testnet date moves the v0.16 subgraph (v0.16 testnet
+// -> guardian -> client/wallet). Verify the testnet task and the deep client/wallet
+// task through the UI.
+function report(name, testnet) {
+  setAnchor("v016_testnet_date", testnet);
+  const exp = M.recalc({ anchors: Object.assign(M.defaultAnchors(), { v016_testnet_date: testnet }), tasks: M.defaultModel() });
+  const expTestnet = M.findTask(exp.tasks, "v016_testnet").date;
+  const expClient = M.findTask(exp.tasks, "client_wallet_done").date;
+  assert(rowHas("0) v0.16 on testnet", expTestnet), `${name}: v0.16 testnet row did not render ${expTestnet}`);
+  assert(rowHas("0) Client/wallet/Epoch upgrade done", expClient), `${name}: client/wallet row did not render ${expClient}`);
+  console.log(`${name}: testnet=${testnet} -> v0.16 testnet ${expTestnet}, client/wallet ${expClient}`);
 }
 
 setTableView();
 assert(tableRows() === TASK_COUNT, "table renders 33 rows");
-report("default anchor", "2026-07-31");
-report("Wave 2 moved +5bd", "2026-08-07");
-report("Wave 2 moved earlier", "2026-07-20");
+report("default anchor", "2026-08-05");
+report("testnet moved +5bd", "2026-08-12");
+report("testnet moved earlier", "2026-07-29");
 els.reset._fire("click");
-assert(els.wave2_date.value === "2026-07-31", "reset restores the default Wave 2 date");
+assert(els.v016_testnet_date.value === "2026-08-05", "reset restores the default v0.16 testnet date");
 
 // ---- Each date anchor moves ONLY its own subgraph through the UI -----------
 const FIXED = {
   v016_devnet_date: ["v016_devnet"],
   v016_testnet_date: ["v016_testnet", "guardian_upgrade_done", "client_wallet_done"],
-  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa"],
+  circle_announcement_date: ["circle_announcement", "website_out", "waitlist_qa", "visual_identity_board"],
 };
 const owned = {};
 Object.keys(FIXED).forEach((aid) => FIXED[aid].forEach((id) => { owned[id] = aid; }));
 const SUBGRAPHS = Object.assign({ wave2_date: M.SHIPPED_TASKS.map((t) => t.id).filter((id) => !owned[id]) }, FIXED);
-// Only the CONTROL anchors have a UI date input to drive; the devnet anchor is a
-// fixed past baseline with no control (its model-level subgraph independence is
-// covered in verify.js / qa-live-recalc-check.js).
+// Only the CONTROL anchors have a UI date input to drive; the Wave 2 start and
+// v0.16 devnet anchors are fixed past baselines with no control (their model-level
+// subgraph independence is covered in verify.js / qa-live-recalc-check.js). Moving
+// a control anchor also confirms the hidden Wave 2 subgraph does NOT move.
 M.CONTROL_ANCHOR_IDS.forEach((movedAnchor) => {
   const before = M.recalc({ anchors: M.defaultAnchors(), tasks: M.defaultModel() });
   els["restore-shipped"]._fire("click");
@@ -134,9 +138,12 @@ els["restore-shipped"]._fire("click");
 console.log("per-anchor subgraph independence verified through app.js (each control date anchor moves only its own chain)");
 
 // ---- Devnet date control hidden, task still present + movable ---------------
-assert(M.CONTROL_ANCHOR_IDS.length === 3 && M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1,
-  "v016_devnet_date is not a control anchor (no UI date input)");
-assert(!els["v016_devnet_date"], "the devnet date input is absent from the DOM");
+assert(M.CONTROL_ANCHOR_IDS.length === 2 &&
+  M.CONTROL_ANCHOR_IDS.join(",") === "v016_testnet_date,circle_announcement_date",
+  "exactly two control anchors: v0.16 testnet then Circle");
+assert(M.CONTROL_ANCHOR_IDS.indexOf("v016_devnet_date") === -1 && M.CONTROL_ANCHOR_IDS.indexOf("wave2_date") === -1,
+  "Wave 2 start and v0.16 devnet are not control anchors (no UI date input)");
+assert(!els["v016_devnet_date"] && !els["wave2_date"], "the devnet and Wave 2 date inputs are absent from the DOM");
 setTableView();
 assert(els.tableview.innerHTML.includes('data-row-id="v016_devnet"'), "devnet task row is still present in the table");
 assert(App.state.model.find((t) => t.id === "v016_devnet").anchor_id === "v016_devnet_date", "devnet task keeps its v016_devnet_date anchor");
@@ -278,7 +285,9 @@ assert(tableRows() === TASK_COUNT && !!App.state.model.find((t) => t.id === "wav
 console.log("add/remove tasks (unique id, dependent re-anchor, export/restore) verified through app.js");
 
 // ---- Stale localStorage cannot mask the new defaults -----------------------
-// Prior-release single-anchor v3 payload + pre-wave v2 payload are both ignored.
+// Prior-release v3r2 payload + single-anchor v3 payload + pre-wave v2 payload are
+// all ignored (bumped storage key + revision), so the new shipped defaults win.
+storageData["bread-calendar-model-v3r2"] = JSON.stringify({ schema: 3, revision: 2, anchors: { wave2_date: "2026-07-31" }, tasks: [{ id: "stale_v3r2" }] });
 storageData["bread-calendar-model-v3"] = JSON.stringify({ schema: 3, wave2: "2026-07-31", tasks: [{ id: "wave6_start" }] });
 storageData["bread-calendar-model-v2"] = JSON.stringify({ teaser: "2026-08-06", launch: "2026-08-13", tasks: [{ id: "public_teaser" }] });
 const staleWin = {};
@@ -287,8 +296,10 @@ staleSandbox.global = staleSandbox;
 vm.createContext(staleSandbox);
 ["model.js", "app.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, f), "utf8"), staleSandbox, { filename: f }));
 assert(staleWin.BreadApp.state.model.length === TASK_COUNT, "stale prior-release state is ignored -> shipped 33-task model");
-assert(!Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3") && !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v2"),
-  "legacy storage keys (single-anchor v3 + pre-wave v2) are removed on load");
+assert(!Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r2") &&
+  !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3") &&
+  !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v2"),
+  "legacy storage keys (v3r2 + single-anchor v3 + pre-wave v2) are removed on load");
 console.log("stale-localStorage handling verified through app.js");
 
 // ---- Export ----------------------------------------------------------------
