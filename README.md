@@ -40,7 +40,7 @@ drag/drop, or re-anchoring.
 |---|---|---|:---:|---|
 | `wave2_date` | Wave 2 start | **2026-07-31** |  | Wave 2 company-wide testing → changes → stores, and Waves 3/4/5 (Wave 3 `+16bd` off Wave 2 start, Wave 4 `+8bd` off Wave 3, Wave 5 `+6bd` off Wave 4), plus their decisions, comms, and teaser prep (fixed past baseline, no control) |
 | `v016_devnet_date` | v0.16 devnet | **2026-07-17** |  | `0) v0.16 on devnet` (standalone; fixed past baseline, no control) |
-| `v016_testnet_date` | v0.16 testnet | **2026-08-05** | ✓ | `0) v0.16 on testnet` (`+8bd`) → Guardian upgrade (`-2bd`) → Client/wallet/Epoch (`+4bd`) |
+| `v016_testnet_date` | v0.16 testnet | **2026-08-17** | ✓ | `0) v0.16 on testnet` (`+0bd`) → Guardian upgrade (`-2bd`) → Client/wallet/Epoch (`+4bd`) |
 | `circle_announcement_date` | Circle announcement | **2026-08-12** | ✓ | `7) PUBLIC: Circle announcement` → website go-live → waitlist QA (`website_out -1bd`) and the visual-identity board (`website_out -2bd`) |
 
 Earlier revisions used a **single** `wave2_date` anchor that moved the entire
@@ -183,7 +183,7 @@ multi-dependencies** — each task has exactly one anchor.
 ## Default model: the shipped 33-row schedule
 
 Default anchors: **Wave 2 start 2026-07-31**, **v0.16 devnet 2026-07-17**,
-**v0.16 testnet 2026-08-05**, **Circle announcement 2026-08-12**, matching
+**v0.16 testnet 2026-08-17**, **Circle announcement 2026-08-12**, matching
 `baseline-model.json`. Under these anchors the shipped model resolves to (sorted
 by date; the last column marks a **stored** external dependency):
 
@@ -201,7 +201,7 @@ by date; the last column marks a **stored** external dependency):
 | `7) PUBLIC: Circle announcement` | Public moment | date: Circle announcement | +0 | 2026-08-12 | ✓ |
 | `4) WEBSITE: new website + Bread waitlist live` | Website / waitlist | item: `7) PUBLIC: Circle announcement` | +0 | 2026-08-12 | ✓ |
 | `0) Guardian upgrade done` | v0.16 dependency | item: `0) v0.16 on testnet` | -2 | 2026-08-13 | ✓ |
-| `0) v0.16 on testnet` | v0.16 dependency | date: v0.16 testnet | +8 | 2026-08-17 | ✓ |
+| `0) v0.16 on testnet` | v0.16 dependency | date: v0.16 testnet | +0 | 2026-08-17 | ✓ |
 | `0) Client/wallet/Epoch upgrade done` | v0.16 dependency | item: `0) Guardian upgrade done` | +4 | 2026-08-19 | ✓ |
 | `6) COMMS: Wave 3 tester pack ready` | Comms | item: `1) PRODUCT: Wave 3 trusted-network testing` | -2 | 2026-08-20 |  |
 | `1) PRODUCT: Wave 3 decision` | Product / go-no-go | item: `1) PRODUCT: Wave 3 trusted-network testing` | -1 | 2026-08-21 |  |
@@ -246,8 +246,8 @@ tests:
   `5) SUPPORT: intake workflow ready` (2026-07-30) lands before Wave 2 start
   (2026-07-31).
 - **v0.16 chain** — Devnet (its own anchor) and Testnet (its own anchor, resolved
-  at `+8bd` off the testnet date) → Guardian (`-2bd` off testnet) →
-  Client/wallet/Epoch (`+4bd` off Guardian).
+  at `+0bd` off the testnet date, i.e. the testnet date itself, 2026-08-17) →
+  Guardian (`-2bd` off testnet) → Client/wallet/Epoch (`+4bd` off Guardian).
 - **Waves cascade** — Wave 2 is the `wave2_date` anchor; Wave 3 is
   `wave2_start +16bd`, Wave 4 is `wave3_start +8bd`, Wave 5 is `wave4_start +6bd`.
   Each wave has a **decision** (`-1bd` off the wave start), **changes applied**
@@ -273,15 +273,15 @@ The artifact is a **static local page**: it cannot write back to its own source
 files. So editable state lives in the browser:
 
 - **`localStorage` holds your working model** under the key
-  `bread-calendar-model-v3r3` (a payload
-  `{ schema: 3, revision: 3, anchors, tasks }`). Every edit, add/remove, the
+  `bread-calendar-model-v3r4` (a payload
+  `{ schema: 3, revision: 4, anchors, tasks }`). Every edit, add/remove, the
   editable anchor dates (all four are persisted; only two are editable), and any
   user-chosen defaults are saved and restored on the next load. **Stale state cannot mask the new defaults:** the v3 schema is
   unchanged but the shipped defaults changed, so a new **storage key** plus a
   bumped **model revision** is used. Any prior-release state under the old
-  `bread-calendar-model-v3r2` / `-v3` / `-v2` / `bread-calendar-model` keys is
+  `bread-calendar-model-v3r3` / `-v3r2` / `-v3` / `-v2` / `bread-calendar-model` keys is
   proactively removed on load, and a payload under the current key whose `schema`
-  isn't `3` or `revision` isn't `3` is ignored. Accepted models are normalized on
+  isn't `3` or `revision` isn't `4` is ignored. Accepted models are normalized on
   load (derived `anchor_type` recomputed; old `n text` labels migrated to `n) text`).
 - **`Set current as defaults`** promotes the current values into each task's
   `default_*` fields. Afterwards, **Reset** and export use those values.

@@ -46,7 +46,7 @@
   var DATE_ANCHORS = [
     { id: "wave2_date",               label: "Wave 2 start",        chip: "WAVE 2",  default: "2026-07-31", control: false },    // Friday (past; no control)
     { id: "v016_devnet_date",         label: "v0.16 devnet",        chip: "DEVNET",  default: "2026-07-17", control: false },    // Friday (past; no control)
-    { id: "v016_testnet_date",        label: "v0.16 testnet",       chip: "TESTNET", default: "2026-08-05" },                    // Wednesday
+    { id: "v016_testnet_date",        label: "v0.16 testnet",       chip: "TESTNET", default: "2026-08-17" },                    // Monday
     { id: "circle_announcement_date", label: "Circle announcement", chip: "CIRCLE",  default: "2026-08-12" }                     // Wednesday
   ];
   var DATE_ANCHOR_BY_ID = {};
@@ -122,7 +122,7 @@
     { id: "wave2_stores_submit",    label: "2) STORES: submit post-Wave-2 build",             category: "stores",  anchor_id: "wave2_feedback_changes",   offset:  0, external: false },
     { id: "wave2_stores_live",      label: "2) STORES: post-Wave-2 build live",               category: "stores",  anchor_id: "wave2_stores_submit",      offset:  1, external: true  },
     { id: "guardian_upgrade_done",  label: "0) Guardian upgrade done",                        category: "v016",    anchor_id: "v016_testnet",             offset: -2, external: true  },
-    { id: "v016_testnet",           label: "0) v0.16 on testnet",                             category: "v016",    anchor_id: "v016_testnet_date",        offset:  8, external: true  },
+    { id: "v016_testnet",           label: "0) v0.16 on testnet",                             category: "v016",    anchor_id: "v016_testnet_date",        offset:  0, external: true  },
     { id: "client_wallet_done",     label: "0) Client/wallet/Epoch upgrade done",             category: "v016",    anchor_id: "guardian_upgrade_done",    offset:  4, external: true  },
     { id: "wave3_decision",         label: "1) PRODUCT: Wave 3 decision",                     category: "product", anchor_id: "wave3_start",              offset: -1, external: false },
     { id: "wave3_recruiting_ready", label: "6) COMMS: Wave 3 tester pack ready",              category: "comms",   anchor_id: "wave3_start",              offset: -2, external: false },

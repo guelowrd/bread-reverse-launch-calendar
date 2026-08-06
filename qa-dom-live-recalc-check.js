@@ -14,7 +14,7 @@ const vm = require("vm");
 const M = require("./model.js");
 
 const TASK_COUNT = 33;
-const STORAGE_KEY = "bread-calendar-model-v3r3";
+const STORAGE_KEY = "bread-calendar-model-v3r4";
 
 function makeEl(id) {
   const listeners = {};
@@ -102,11 +102,11 @@ function report(name, testnet) {
 
 setTableView();
 assert(tableRows() === TASK_COUNT, "table renders 33 rows");
-report("default anchor", "2026-08-05");
-report("testnet moved +5bd", "2026-08-12");
+report("default anchor", "2026-08-17");
+report("testnet moved +5bd", "2026-08-24");
 report("testnet moved earlier", "2026-07-29");
 els.reset._fire("click");
-assert(els.v016_testnet_date.value === "2026-08-05", "reset restores the default v0.16 testnet date");
+assert(els.v016_testnet_date.value === "2026-08-17", "reset restores the default v0.16 testnet date");
 
 // ---- Each date anchor moves ONLY its own subgraph through the UI -----------
 const FIXED = {
@@ -285,8 +285,10 @@ assert(tableRows() === TASK_COUNT && !!App.state.model.find((t) => t.id === "wav
 console.log("add/remove tasks (unique id, dependent re-anchor, export/restore) verified through app.js");
 
 // ---- Stale localStorage cannot mask the new defaults -----------------------
-// Prior-release v3r2 payload + single-anchor v3 payload + pre-wave v2 payload are
-// all ignored (bumped storage key + revision), so the new shipped defaults win.
+// Prior-release v3r3 + v3r2 payloads + single-anchor v3 payload + pre-wave v2
+// payload are all ignored (bumped storage key + revision), so the new shipped
+// defaults win.
+storageData["bread-calendar-model-v3r3"] = JSON.stringify({ schema: 3, revision: 3, anchors: { wave2_date: "2026-07-31" }, tasks: [{ id: "stale_v3r3" }] });
 storageData["bread-calendar-model-v3r2"] = JSON.stringify({ schema: 3, revision: 2, anchors: { wave2_date: "2026-07-31" }, tasks: [{ id: "stale_v3r2" }] });
 storageData["bread-calendar-model-v3"] = JSON.stringify({ schema: 3, wave2: "2026-07-31", tasks: [{ id: "wave6_start" }] });
 storageData["bread-calendar-model-v2"] = JSON.stringify({ teaser: "2026-08-06", launch: "2026-08-13", tasks: [{ id: "public_teaser" }] });
@@ -296,17 +298,18 @@ staleSandbox.global = staleSandbox;
 vm.createContext(staleSandbox);
 ["model.js", "app.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, f), "utf8"), staleSandbox, { filename: f }));
 assert(staleWin.BreadApp.state.model.length === TASK_COUNT, "stale prior-release state is ignored -> shipped 33-task model");
-assert(!Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r2") &&
+assert(!Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r3") &&
+  !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r2") &&
   !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3") &&
   !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v2"),
-  "legacy storage keys (v3r2 + single-anchor v3 + pre-wave v2) are removed on load");
+  "legacy storage keys (v3r3 + v3r2 + single-anchor v3 + pre-wave v2) are removed on load");
 console.log("stale-localStorage handling verified through app.js");
 
 // ---- Export ----------------------------------------------------------------
 const exported = JSON.parse(window.BreadApp.exportJSON());
 assert(exported.tasks.length === TASK_COUNT && exported.version === 3 &&
   exported.wave2_date === "2026-07-31" && exported.v016_devnet_date === "2026-07-17" &&
-  exported.v016_testnet_date === "2026-08-05" && exported.circle_announcement_date === "2026-08-12",
+  exported.v016_testnet_date === "2026-08-17" && exported.circle_announcement_date === "2026-08-12",
   "export JSON carries the full 33-task version-3 model with four anchors");
 console.log("export JSON verified through app.js");
 

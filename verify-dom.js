@@ -22,7 +22,7 @@ function check(name, cond, extra) {
 }
 
 var TASK_COUNT = 33;
-var STORAGE_KEY = "bread-calendar-model-v3r3";
+var STORAGE_KEY = "bread-calendar-model-v3r4";
 
 // ---- Minimal DOM shim ------------------------------------------------------
 function makeEl(id) {
@@ -237,7 +237,7 @@ els["view-cal"]._fire("click");
 var cal2 = els.calendar.innerHTML;
 check("moving the devnet task earlier expands the span to include June 2026", cal2.indexOf("June 2026") !== -1);
 els.reset._fire("click"); // restore defaults
-check("reset returns the v0.16 testnet date input to the default 2026-08-05", els.v016_testnet_date.value === "2026-08-05");
+check("reset returns the v0.16 testnet date input to the default 2026-08-17", els.v016_testnet_date.value === "2026-08-17");
 check("reset returns the devnet task to its baseline 2026-07-17",
   M.findTask(M.recalc({ anchors: App.state.anchors, tasks: App.state.model }).tasks, "v016_devnet").date === "2026-07-17");
 
@@ -334,7 +334,7 @@ check("reset clears the cycle (no unresolved rows)", els.tableview.innerHTML.ind
 // ---- Moving the (visible) v0.16 testnet date shifts ONLY its subgraph -------
 console.log("\nMoving the v0.16 testnet date shifts only the v0.16 chain; other chains stay put");
 var beforeMove = M.recalc({ anchors: M.defaultAnchors(), tasks: M.defaultModel() });
-setAnchor("v016_testnet_date", "2026-08-12"); // 2026-08-05 +5 business days later
+setAnchor("v016_testnet_date", "2026-08-24"); // 2026-08-17 +5 business days later
 els["view-table"]._fire("click");
 var afterMove = M.recalc({ anchors: App.state.anchors, tasks: App.state.model });
 function movedBy(id, bd) { return M.findTask(afterMove.tasks, id).date === M.addBusinessDays(M.findTask(beforeMove.tasks, id).date, bd); }
@@ -381,7 +381,7 @@ check("export is valid JSON with 33 tasks", parsed.tasks.length === TASK_COUNT);
 check("export is version 3", parsed.version === 3);
 check("export carries all four date anchors",
   parsed.wave2_date === "2026-07-31" && parsed.v016_devnet_date === "2026-07-17" &&
-  parsed.v016_testnet_date === "2026-08-05" && parsed.circle_announcement_date === "2026-08-12");
+  parsed.v016_testnet_date === "2026-08-17" && parsed.circle_announcement_date === "2026-08-12");
 check("export has no teaser/launch fields", !("teaser_date" in parsed) && !("launch_date" in parsed));
 check("export includes per-task defaults", parsed.tasks.every(function (t) { return "default_offset_business_days" in t && "default_anchor_id" in t; }));
 check("export carries external_dependency (stored) for every task", parsed.tasks.every(function (t) { return "external_dependency" in t && "default_external_dependency" in t; }));
@@ -398,12 +398,12 @@ check("promoted default present in export", w5.default_offset_business_days === 
 els["restore-shipped"]._fire("click");
 
 // ---- localStorage persistence ----------------------------------------------
-console.log("\nlocalStorage persistence across reload (schema-3 revision-3 key)");
+console.log("\nlocalStorage persistence across reload (schema-3 revision-4 key)");
 els["view-table"]._fire("click");
 fireEdit("offset", "wave5_stores_live", "4");
-check("edit was written to the v3r3 storage key", (storageData[STORAGE_KEY] || "").indexOf("wave5_stores_live") !== -1);
-check("persisted payload carries schema:3 + revision:3 + anchors",
-  /"schema":3/.test(storageData[STORAGE_KEY]) && /"revision":3/.test(storageData[STORAGE_KEY]) && /"wave2_date":"2026-07-31"/.test(storageData[STORAGE_KEY]));
+check("edit was written to the v3r4 storage key", (storageData[STORAGE_KEY] || "").indexOf("wave5_stores_live") !== -1);
+check("persisted payload carries schema:3 + revision:4 + anchors",
+  /"schema":3/.test(storageData[STORAGE_KEY]) && /"revision":4/.test(storageData[STORAGE_KEY]) && /"wave2_date":"2026-07-31"/.test(storageData[STORAGE_KEY]));
 var window2 = loadApp({}, makeDocument());
 els["view-table"]._fire("click");
 var reloaded = JSON.parse(window2.BreadApp.exportJSON());
@@ -420,7 +420,7 @@ check("fresh load yields the full shipped 33-task model", winFresh.BreadApp.stat
 check("fresh load uses the default four anchors",
   winFresh.BreadApp.state.anchors.wave2_date === "2026-07-31" &&
   winFresh.BreadApp.state.anchors.v016_devnet_date === "2026-07-17" &&
-  winFresh.BreadApp.state.anchors.v016_testnet_date === "2026-08-05" &&
+  winFresh.BreadApp.state.anchors.v016_testnet_date === "2026-08-17" &&
   winFresh.BreadApp.state.anchors.circle_announcement_date === "2026-08-12");
 
 console.log("\nStale prior-release single-anchor v3 state cannot mask the new defaults");
@@ -464,11 +464,23 @@ check("old v3r2 state is ignored -> shipped 33-task model", winV3r2.BreadApp.sta
 check("no stale_from_v3r2 task leaks in from the prior-release key", !winV3r2.BreadApp.state.model.some(function (t) { return t.id === "stale_from_v3r2"; }));
 check("legacy v3r2 key is proactively removed on load", !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r2"));
 
-console.log("\nValid v3r3 state with a stale '{n} text' label is restored + normalized");
+console.log("\nStale prior-release v3r3 key is proactively removed (cannot mask the new defaults)");
+storageData = {};
+storageData["bread-calendar-model-v3r3"] = JSON.stringify({
+  schema: 3, revision: 3, anchors: { wave2_date: "2026-07-31" },
+  tasks: [{ id: "stale_from_v3r3", label: "1) PRODUCT: old", category: "product",
+    anchor_type: "date_anchor", anchor_id: "wave2_date", offset_business_days: 0 }]
+});
+var winV3r3 = loadApp({}, makeDocument());
+check("old v3r3 state is ignored -> shipped 33-task model", winV3r3.BreadApp.state.model.length === TASK_COUNT);
+check("no stale_from_v3r3 task leaks in from the prior-release key", !winV3r3.BreadApp.state.model.some(function (t) { return t.id === "stale_from_v3r3"; }));
+check("legacy v3r3 key is proactively removed on load", !Object.prototype.hasOwnProperty.call(storageData, "bread-calendar-model-v3r3"));
+
+console.log("\nValid v3r4 state with a stale '{n} text' label is restored + normalized");
 storageData = {};
 storageData[STORAGE_KEY] = JSON.stringify({
-  schema: 3, revision: 3,
-  anchors: { wave2_date: "2026-07-31", v016_devnet_date: "2026-07-17", v016_testnet_date: "2026-08-05", circle_announcement_date: "2026-08-12" },
+  schema: 3, revision: 4,
+  anchors: { wave2_date: "2026-07-31", v016_devnet_date: "2026-07-17", v016_testnet_date: "2026-08-17", circle_announcement_date: "2026-08-12" },
   tasks: [{
     id: "wave2_start", label: "1 PRODUCT: Wave 2 company-wide testing", category: "product",
     anchor_type: "date_anchor", anchor_id: "wave2_date", offset_business_days: 0,
@@ -480,7 +492,7 @@ storageData[STORAGE_KEY] = JSON.stringify({
 });
 var winV3 = loadApp({}, makeDocument());
 var restored = winV3.BreadApp.state.model.find(function (t) { return t.id === "wave2_start"; });
-check("valid v3r3 state is restored (single persisted task)", winV3.BreadApp.state.model.length === 1 && !!restored);
+check("valid v3r4 state is restored (single persisted task)", winV3.BreadApp.state.model.length === 1 && !!restored);
 check("stale '{n} text' label migrated to '{n}) text'", restored.label === "1) PRODUCT: Wave 2 company-wide testing", restored.label);
 check("stale default_label migrated too", restored.default_label === "1) PRODUCT: Wave 2 company-wide testing", restored.default_label);
 // Reset back to a clean shipped app for the interactive sections below.

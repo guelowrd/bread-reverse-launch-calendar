@@ -101,7 +101,7 @@ check("shipped export is version 3", shipped.version === 3);
 check("baseline has 33 tasks", baseline.tasks.length === TASK_COUNT, "got " + baseline.tasks.length);
 check("baseline carries all four date anchors",
   baseline.wave2_date === "2026-07-31" && baseline.v016_devnet_date === "2026-07-17" &&
-  baseline.v016_testnet_date === "2026-08-05" && baseline.circle_announcement_date === "2026-08-12");
+  baseline.v016_testnet_date === "2026-08-17" && baseline.circle_announcement_date === "2026-08-12");
 M.DATE_ANCHOR_IDS.forEach(function (id) {
   check("shipped anchor " + id + " matches baseline", shipped[id] === baseline[id], shipped[id] + " vs " + baseline[id]);
 });
@@ -256,7 +256,7 @@ check("wave2_decision is authored BEFORE its anchor wave2_start (a true forward 
 
 console.log("\nTest 8: v0.16 chain resolves through the testnet date anchor + item anchors");
 check("v016_devnet = 2026-07-17 (own date anchor)", byId(base, "v016_devnet").date === "2026-07-17" && byId(base, "v016_devnet").anchor_id === "v016_devnet_date");
-check("v016_testnet = 2026-08-17 (testnet date +8bd)", byId(base, "v016_testnet").date === "2026-08-17" && byId(base, "v016_testnet").anchor_id === "v016_testnet_date" && byId(base, "v016_testnet").offset_business_days === 8);
+check("v016_testnet = 2026-08-17 (own testnet date, +0bd)", byId(base, "v016_testnet").date === "2026-08-17" && byId(base, "v016_testnet").anchor_id === "v016_testnet_date" && byId(base, "v016_testnet").offset_business_days === 0);
 check("guardian_upgrade_done = 2026-08-13 (testnet -2bd)", byId(base, "guardian_upgrade_done").date === "2026-08-13" && byId(base, "guardian_upgrade_done").anchor_id === "v016_testnet");
 check("client_wallet_done = 2026-08-19 (guardian +4bd)", byId(base, "client_wallet_done").date === "2026-08-19");
 
@@ -341,7 +341,7 @@ var ex = M.exportModel(M.defaultAnchors(), M.defaultModel());
 check("export is version 3", ex.version === 3);
 check("export has the four date anchors and no teaser/launch",
   ex.wave2_date === "2026-07-31" && ex.v016_devnet_date === "2026-07-17" &&
-  ex.v016_testnet_date === "2026-08-05" && ex.circle_announcement_date === "2026-08-12" &&
+  ex.v016_testnet_date === "2026-08-17" && ex.circle_announcement_date === "2026-08-12" &&
   !("teaser_date" in ex) && !("launch_date" in ex));
 check("export has 33 tasks", ex.tasks.length === TASK_COUNT);
 var exOne = ex.tasks.find(function (t) { return t.id === "guardian_upgrade_done"; });

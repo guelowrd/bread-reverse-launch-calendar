@@ -8,7 +8,7 @@ defaults (seven task definitions changed: `teaser_final`, `v016_testnet`,
 `wave4_comms_ready`, `wave4_start`) and a narrower top control strip. There are
 still **four date anchors** and **33 tasks**: **`wave2_date` (Wave 2 start,
 2026-07-31)**, **`v016_devnet_date` (2026-07-17)**, **`v016_testnet_date`
-(2026-08-05)**, and **`circle_announcement_date` (2026-08-12)**. Each anchor roots
+(2026-08-17)**, and **`circle_announcement_date` (2026-08-12)**. Each anchor roots
 its **own** subgraph; moving one recomputes only its dependents. Only **two**
 anchors are exposed as editable top inputs, in order: **v0.16 testnet**, then
 **Circle announcement**. The **Wave 2 start** and **v0.16 devnet** dates are fixed
@@ -27,8 +27,9 @@ numbering, and stale-`localStorage` label normalization (`n text` → `n) text`)
 
 Changed in this update:
 
-- **New shipped defaults** for seven tasks: `v016_testnet` now `+8bd` off its date
-  anchor; `wave3_start` `+16bd` (was `+6bd`) off `wave2_start`; `wave4_start`
+- **New shipped defaults** for seven tasks: `v016_testnet` is anchored to its own
+  testnet date at `+0bd` (the testnet date is 2026-08-17, so the milestone and the
+  editable control now agree); `wave3_start` `+16bd` (was `+6bd`) off `wave2_start`; `wave4_start`
   `+8bd` (was `+6bd`) off `wave3_start`; `wave3_recruiting_ready`, `teaser_final`,
   and `wave4_comms_ready` all `-2bd`; and `visual_identity_board` re-anchored from
   `wave4_start` (`-7bd`) to `website_out` (`-2bd`), moving it into the Circle
@@ -42,9 +43,9 @@ Changed in this update:
   round-trips. Anchor day cells still carry chips (`WAVE 2` / `DEVNET` / `TESTNET`
   / `CIRCLE`).
 - **Storage migration:** the v3 schema and export version are unchanged, but the
-  shipped defaults changed, so a new **storage key** (`bread-calendar-model-v3r3`)
-  plus a bumped model **revision** (`revision: 3`) is used, with proactive cleanup
-  of the prior `bread-calendar-model-v3r2` / `-v3` / `-v2` / `bread-calendar-model`
+  shipped defaults changed, so a new **storage key** (`bread-calendar-model-v3r4`)
+  plus a bumped model **revision** (`revision: 4`) is used, with proactive cleanup
+  of the prior `bread-calendar-model-v3r3` / `-v3r2` / `-v3` / `-v2` / `bread-calendar-model`
   keys so stale prior-release state cannot mask the new defaults.
 
 `anchor_type` is still **derived** from `anchor_id`; `external_dependency` remains
@@ -53,7 +54,7 @@ a **stored** semantic flag, preserved through edit/reset/import/export.
 ## Model / default anchor check
 
 - Default anchors: **Wave 2 start 2026-07-31**, **v0.16 devnet 2026-07-17**,
-  **v0.16 testnet 2026-08-05**, **Circle announcement 2026-08-12**.
+  **v0.16 testnet 2026-08-17**, **Circle announcement 2026-08-12**.
 - Rule: `computed_date = addBusinessDays(anchor_date, offset_business_days)`,
   where the anchor date is one of the four date anchors or the resolved date of
   another task (item anchor).
@@ -98,9 +99,9 @@ the visible **v0.16 testnet** control and confirm only its chain moves:
 
 | Scenario | v016_testnet_date | Observed v0.16 testnet row | Observed client/wallet row | Result |
 |---|---|---|---|---|
-| Default anchors | 2026-08-05 | `0) v0.16 on testnet` → 2026-08-17 | `0) Client/wallet/Epoch upgrade done` → 2026-08-19 | PASS |
-| Testnet moved +5 bd | 2026-08-12 | v0.16 testnet → 2026-08-24 | client/wallet → 2026-08-26 | PASS |
-| Testnet moved earlier | 2026-07-29 | v0.16 testnet → 2026-08-10 | client/wallet → 2026-08-12 | PASS |
+| Default anchors | 2026-08-17 | `0) v0.16 on testnet` → 2026-08-17 | `0) Client/wallet/Epoch upgrade done` → 2026-08-19 | PASS |
+| Testnet moved +5 bd | 2026-08-24 | v0.16 testnet → 2026-08-24 | client/wallet → 2026-08-26 | PASS |
+| Testnet moved earlier | 2026-07-29 | v0.16 testnet → 2026-07-29 | client/wallet → 2026-07-31 | PASS |
 
 Graph-specific observations:
 
@@ -115,7 +116,7 @@ Graph-specific observations:
   the website go-live; waitlist QA is `website_out -1bd`; waves ascend
   Wave 2 < Wave 3 < Wave 4 < Wave 5.
 - **Item-anchor chain (default anchors):** `0) v0.16 on testnet` 2026-08-17
-  (testnet date `+8bd`) → `0) Guardian upgrade done` 2026-08-13 (`-2bd`, a
+  (its own testnet date, `+0bd`) → `0) Guardian upgrade done` 2026-08-13 (`-2bd`, a
   **forward reference** — guardian is authored before testnet) →
   `0) Client/wallet/Epoch upgrade done` 2026-08-19 (`+4bd`).
 - **Downstream recompute:** editing/dragging a parent by ±N business days shifts
@@ -174,15 +175,17 @@ Graph-specific observations:
 
 - **Fresh state** (no persisted model) → the full shipped 33-task model and the
   four default anchor dates.
+- **Prior-release v3r3 state** under `bread-calendar-model-v3r3` is **ignored** and
+  the key is **removed** on load.
 - **Prior-release v3r2 state** under `bread-calendar-model-v3r2` is **ignored** and
   the key is **removed** on load.
 - **Prior-release single-anchor v3 state** under `bread-calendar-model-v3` is
   **ignored** (no `wave6` task leaks in) and the key is **removed** on load.
 - **Pre-wave (v2) state** under `bread-calendar-model-v2` is **ignored** and the
   key is **removed** on load.
-- **Wrong-revision** payload under the current key (`revision !== 3`) is
+- **Wrong-revision** payload under the current key (`revision !== 4`) is
   **discarded** → shipped defaults.
-- **Valid v3r3 state** is restored; a stale `{n} text` label in it is migrated to
+- **Valid v3r4 state** is restored; a stale `{n} text` label in it is migrated to
   `{n}) text` (both `label` and `default_label`).
 
 Verified in `verify-dom.js` (fresh / stale-v3 / stale-v2 / wrong-revision /
@@ -300,7 +303,7 @@ Observed command results:
   devnet dates are fixed past baselines with **no** control input, but stay in the
   model/export and as their tasks' anchors.
 - User edits and chosen defaults persist under `localStorage` key
-  `bread-calendar-model-v3r3` (`schema: 3`, `revision: 3`); prior-release keys are
+  `bread-calendar-model-v3r4` (`schema: 3`, `revision: 4`); prior-release keys are
   cleared on load; `Restore shipped defaults` or clearing site data returns to the
   shipped 33-task model. Nothing is written to disk except the JSON the user
   explicitly exports.

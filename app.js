@@ -3,16 +3,17 @@
   "use strict";
   var M = window.BreadModel;
   // Versioned storage key + explicit model revision. The v3 SCHEMA is unchanged,
-  // but the shipped DEFAULTS changed again (new task offsets/anchors, and Wave 2 is
-  // now a hidden past baseline), so a new storage KEY plus a bumped REVISION stamp
-  // guarantees that stale schema-3 state from the previous release cannot mask or
-  // shadow the new shipped defaults: the old keys are different buckets (proactively
-  // removed on load) and a payload with the wrong revision under the new key is
-  // discarded. Exported JSON stays version 3; only this persistence revision moves.
-  var STORAGE_KEY = "bread-calendar-model-v3r3";
+  // but the shipped DEFAULTS changed again (the v0.16 testnet date anchor is now
+  // 2026-08-17 with the testnet task anchored at +0bd), so a new storage KEY plus a
+  // bumped REVISION stamp guarantees that stale schema-3 state from the previous
+  // release cannot mask or shadow the new shipped defaults: the old keys are
+  // different buckets (proactively removed on load) and a payload with the wrong
+  // revision under the new key is discarded. Exported JSON stays version 3; only
+  // this persistence revision moves.
+  var STORAGE_KEY = "bread-calendar-model-v3r4";
   var STORAGE_SCHEMA = 3;
-  var STORAGE_REVISION = 3;
-  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v3r2", "bread-calendar-model-v3", "bread-calendar-model-v2", "bread-calendar-model"];
+  var STORAGE_REVISION = 4;
+  var LEGACY_STORAGE_KEYS = ["bread-calendar-model-v3r3", "bread-calendar-model-v3r2", "bread-calendar-model-v3", "bread-calendar-model-v2", "bread-calendar-model"];
 
   // ---- Persistence (localStorage) -------------------------------------------
   // The app is a static local page: source files cannot be written from the

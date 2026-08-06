@@ -4,7 +4,7 @@
 > the early UI/layout sketch and predates the shipped anchor-**graph** model. The
 > shipped artifact ships a **33-task business-day dependency graph** rooted at
 > **four editable date anchors** — Wave 2 start (2026-07-31), v0.16 devnet
-> (2026-07-17), v0.16 testnet (2026-08-05), Circle announcement (2026-08-12) — not
+> (2026-07-17), v0.16 testnet (2026-08-17), Circle announcement (2026-08-12) — not
 > the older teaser/launch "every task hangs off teaser or launch" list once
 > drafted here. It hides the derived `anchor_type` and the stored
 > `external_dependency` fields (no `Ext. dep` / `Anchor type` UI), and the

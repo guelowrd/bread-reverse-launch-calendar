@@ -3,7 +3,7 @@
   "exported_at": null,
   "wave2_date": "2026-07-31",
   "v016_devnet_date": "2026-07-17",
-  "v016_testnet_date": "2026-08-05",
+  "v016_testnet_date": "2026-08-17",
   "circle_announcement_date": "2026-08-12",
   "tasks": [
     {
@@ -132,13 +132,13 @@
       "category": "v016",
       "anchor_type": "date_anchor",
       "anchor_id": "v016_testnet_date",
-      "offset_business_days": 8,
+      "offset_business_days": 0,
       "external_dependency": true,
       "default_label": "0) v0.16 on testnet",
       "default_category": "v016",
       "default_anchor_type": "date_anchor",
       "default_anchor_id": "v016_testnet_date",
-      "default_offset_business_days": 8,
+      "default_offset_business_days": 0,
       "default_external_dependency": true
     },
     {

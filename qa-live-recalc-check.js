@@ -15,7 +15,7 @@ const scenarios = [
   { name: "default anchors", anchors: D },
   { name: "Wave 2 pushed one week later", anchors: Object.assign({}, D, { wave2_date: "2026-08-07" }) },
   { name: "Wave 2 pulled one week earlier", anchors: Object.assign({}, D, { wave2_date: "2026-07-24" }) },
-  { name: "v0.16 testnet slips +3bd", anchors: Object.assign({}, D, { v016_testnet_date: "2026-08-10" }) },
+  { name: "v0.16 testnet slips +3bd", anchors: Object.assign({}, D, { v016_testnet_date: "2026-08-20" }) },
   { name: "Circle announcement moves +5bd", anchors: Object.assign({}, D, { circle_announcement_date: "2026-08-19" }) },
   { name: "v0.16 devnet pulled earlier", anchors: Object.assign({}, D, { v016_devnet_date: "2026-07-10" }) },
 ];
@@ -144,7 +144,7 @@ console.log("add/remove check: add appends a unique-id task; remove re-anchors d
 const ex = M.exportModel(D, M.defaultModel());
 assert(ex.version === 3 && ex.tasks.length === 33 &&
   ex.wave2_date === "2026-07-31" && ex.v016_devnet_date === "2026-07-17" &&
-  ex.v016_testnet_date === "2026-08-05" && ex.circle_announcement_date === "2026-08-12", "export carries version 3 + four anchors + 33 tasks"); assertions++;
+  ex.v016_testnet_date === "2026-08-17" && ex.circle_announcement_date === "2026-08-12", "export carries version 3 + four anchors + 33 tasks"); assertions++;
 assert(ex.tasks.some((t) => t.external_dependency === true), "export preserves external_dependency data"); assertions++;
 
 console.log(`\nPASS: ${assertions} QA scenario assertions passed.`);
